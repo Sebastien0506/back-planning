@@ -9,6 +9,7 @@ import json
 import jwt
 from django.conf import settings
 from back.models import Administrateur
+from django.middleware.csrf import get_token
 
 @csrf_exempt #On désactive temporairement le csrf
 @api_view(['POST'])
@@ -18,6 +19,10 @@ def generate_temp_token(request):
     token = generate_jwt()  # Génère le JWT
     return Response({"access_token": token}) #On retourne le token en format json
 
+def get_csrf_token(request) :
+    if request.method == "GET" : 
+        token = get_token(request)
+        return JsonResponse({'csrfToken': token}) 
 
 @csrf_exempt  #  Désactive CSRF pour Postman (ne pas utiliser en production)
 def add_admin(request):

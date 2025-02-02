@@ -6,7 +6,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView
 )
-from back.views import generate_temp_token, add_admin  # ✅ Import de la vue
+from back.views import generate_temp_token, add_admin, get_csrf_token  # ✅ Import de la vue
 
 # Serializers define the API representation.
 class UserSerializer(serializers.HyperlinkedModelSerializer):
@@ -32,5 +32,6 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('generate_temp_token/', generate_temp_token, name='generate_temp_token'),
-    path('add_admin/', add_admin, name='add_admin')
+    path('add_admin/', add_admin, name='add_admin'),
+    path('get-csrf/', get_csrf_token, name='get-csrf'),
 ]
