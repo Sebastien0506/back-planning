@@ -3,13 +3,15 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from back.utils import generate_jwt  # Import de la fonction
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse
 import json
 import jwt
 from django.conf import settings
-from back.models import Administrateur
+from back.models import Administrateur, Employes
 from django.middleware.csrf import get_token
+from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 @csrf_exempt #On désactive temporairement le csrf
 @api_view(['POST'])
@@ -89,3 +91,68 @@ def add_admin(request):
             return JsonResponse({"error": "Token invalide"}, status=403)
 
     return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+
+@api_view(['POST'])
+@csrf_exempt
+@permission_classes([AllowAny])
+def login(request):
+    # Vérifie si la requête est bien de méthode POST
+    if request.method != "POST":
+        return JsonResponse({"error": "Seules les requêtes POST sont autorisées."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+    try:
+        # Lis les données présentes dans la requête
+        data = json.loads(request.body)
+        
+        # Récupérer et valider les champs
+        username = data.get("username")
+        password = data.get("password")
+
+        if not username:
+            return JsonResponse({"error": "Le champ 'username' est vide."}, status=status.HTTP_400_BAD_REQUEST)
+        if not password:
+            return JsonResponse({"error": "Le champ 'password' est vide."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = None
+        role = None
+
+        # Vérifier si l'utilisateur est un administrateur
+        try:
+            user = Administrateur.objects.get(username=username)
+            if user :
+                check_password(password, user.password)
+                role = "admin"
+            else:
+                return JsonResponse({"error": "Mot de passe incorrect"}, status=status.HTTP_401_UNAUTHORIZED)
+
+        except Administrateur.DoesNotExist:
+            # Si ce n'est pas un administrateur, vérifier si c'est un employé
+            try:
+                user = Employes.objects.get(username=username)
+                if check_password(password, user.password):
+                    role = "employe"
+                else:
+                    return JsonResponse({"error": "Mot de passe incorrect"}, status=status.HTTP_401_UNAUTHORIZED)
+            except Employes.DoesNotExist:
+                return JsonResponse({"error": "Utilisateur non trouvé."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Si un utilisateur valide est trouvé, générer un token
+        if user:
+            refresh = RefreshToken.for_user(user)
+            return JsonResponse({
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "role": role,
+                "username": user.username
+            })
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Données JSON invalides."}, status=status.HTTP_400_BAD_REQUEST)
+
+    except Exception as e:
+        return JsonResponse({"error": f"Erreur inattendue : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+

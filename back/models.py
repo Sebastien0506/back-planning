@@ -2,15 +2,18 @@ from django.db import models
 from django.contrib.auth.hashers import make_password, check_password
 from django.core.exceptions import ValidationError
 
+
 class Administrateur(models.Model):
-    name = models.CharField(max_length=50)
+    username = models.CharField(max_length=50, unique=True)
     lastname = models.CharField(max_length=50)
     email = models.EmailField(max_length=50, unique=True)  # Email unique
     password = models.CharField(max_length=128)  # Stocke le hash du mot de passe
     
+    
+    
 
 class Employes(models.Model) : 
-    name = models.CharField(max_length=50)
+    username = models.CharField(max_length=50, unique=True)
     lastname = models.CharField(max_length=50)
     email = models.EmailField(max_length=50, unique=True) 
     password = models.CharField(max_length=128)
@@ -27,7 +30,7 @@ class Magasin(models.Model) :
 class Contrats(models.Model) : 
     type_de_contrat = models.CharField(max_length=50)
     #On ajoute la relation entre les entités Contrats et Employes
-    employes = models.ForeignKey(Employes, on_delete=models.CASCADE)
+    employes = models.ForeignKey(Employes, on_delete=models.CASCADE, null=True, blank=True)
 
 class Vacances(models.Model) : 
     start_date = models.DateTimeField(null=False)
