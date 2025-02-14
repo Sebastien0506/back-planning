@@ -13,6 +13,7 @@ from django.middleware.csrf import get_token
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
+#ROUTE QUI PERMET DE GENERER UN JWT TOKEN
 @csrf_exempt #On désactive temporairement le csrf
 @api_view(['POST'])
 @permission_classes([AllowAny]) #On dit que tous le monde peut y acceder
@@ -25,8 +26,11 @@ def get_csrf_token(request) :
     if request.method == "GET" : 
         token = get_token(request)
         return JsonResponse({'csrfToken': token}) 
-
+    
+#ROUTE QUI PERMET DE CREER UN ADMINISTRATEUR
 @csrf_exempt  #  Désactive CSRF pour Postman (ne pas utiliser en production)
+@api_view
+@permission_classes([AllowAny])
 def add_admin(request):
     """Vue pour valider un token JWT et créer un administrateur"""
     if request.method == "POST":
@@ -92,67 +96,79 @@ def add_admin(request):
 
     return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
-
 @api_view(['POST'])
 @csrf_exempt
 @permission_classes([AllowAny])
 def login(request):
-    # Vérifie si la requête est bien de méthode POST
     if request.method != "POST":
         return JsonResponse({"error": "Seules les requêtes POST sont autorisées."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     try:
-        # Lis les données présentes dans la requête
         data = json.loads(request.body)
-        
-        # Récupérer et valider les champs
         username = data.get("username")
         password = data.get("password")
 
-        if not username:
-            return JsonResponse({"error": "Le champ 'username' est vide."}, status=status.HTTP_400_BAD_REQUEST)
-        if not password:
-            return JsonResponse({"error": "Le champ 'password' est vide."}, status=status.HTTP_400_BAD_REQUEST)
+        if not username or not password:
+            return JsonResponse({"error": "Nom d'utilisateur et mot de passe sont requis."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Recherche de l'utilisateur dans les deux tables
         user = None
         role = None
 
-        # Vérifier si l'utilisateur est un administrateur
+        # Vérification dans Administrateur
         try:
             user = Administrateur.objects.get(username=username)
-            if user :
-                check_password(password, user.password)
-                role = "admin"
-            else:
-                return JsonResponse({"error": "Mot de passe incorrect"}, status=status.HTTP_401_UNAUTHORIZED)
-
+            role = "admin"
         except Administrateur.DoesNotExist:
-            # Si ce n'est pas un administrateur, vérifier si c'est un employé
+            pass
+
+        # Vérification dans Employes si non trouvé en admin
+        if not user:
             try:
                 user = Employes.objects.get(username=username)
-                if check_password(password, user.password):
-                    role = "employe"
-                else:
-                    return JsonResponse({"error": "Mot de passe incorrect"}, status=status.HTTP_401_UNAUTHORIZED)
+                role = "employe"
             except Employes.DoesNotExist:
-                return JsonResponse({"error": "Utilisateur non trouvé."}, status=status.HTTP_404_NOT_FOUND)
+                pass
 
-        # Si un utilisateur valide est trouvé, générer un token
-        if user:
-            refresh = RefreshToken.for_user(user)
-            return JsonResponse({
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-                "role": role,
-                "username": user.username
-            })
+        # Vérification du mot de passe
+        if not user or not check_password(password, user.password):
+            return JsonResponse({"error": "Identifiants incorrects."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Génération des tokens
+        refresh = RefreshToken.for_user(user)
+        
+        # Réponse sécurisée
+        response = JsonResponse({
+            "username": user.username
+        })
+
+        # Stocker le JWT dans un cookie HttpOnly sécurisé
+        response.set_cookie(
+            key='access_token',
+            value=str(refresh.access_token),
+            httponly=True,
+            secure=True,
+            samesite='Strict',
+            max_age=3600
+        )
+
+        # Stocker le rôle uniquement pour l'affichage côté frontend (sans impact sur la sécurité)
+        response.set_cookie(
+            key='user_role',
+            value=role,
+            httponly=False,
+            secure=True,
+            samesite='Strict',
+            max_age=3600
+        )
+
+        return response
 
     except json.JSONDecodeError:
         return JsonResponse({"error": "Données JSON invalides."}, status=status.HTTP_400_BAD_REQUEST)
 
     except Exception as e:
         return JsonResponse({"error": f"Erreur inattendue : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 
 
