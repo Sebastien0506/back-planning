@@ -1,65 +1,82 @@
 from django.test import TestCase
-import jwt
-from datetime import datetime, timezone
-from back.utils import generate_jwt  # Import de la fonction
-from django.conf import settings
-import json
-from django.http import JsonResponse
-import bcrypt
-class JWTExpirationTest(TestCase):
+from django.contrib.auth.hashers import identify_hasher
+from back.serializer import AdministrateurSerializer
 
-    def test_hasher_password(password) : 
-        password = b"monpassword"
+class AdministrateurSerializerTest(TestCase):
+    """Tests pour le sérialiseur AdministrateurSerializer"""
 
-        hashed = bcrypt.hashpw(password, bcrypt.gensalt())
+    def test_valid_data(self):
+        """Test avec des données valides"""
+        data = {
+            "username": "adminTest",
+            "lastname": "Dupont",
+            "email": "admin@example.com",
+            "password": "SecurePass123"
+        }
+        
+        serializer = AdministrateurSerializer(data=data)
 
-        if bcrypt.checkpw(password, hashed) :
-            print("It Matches!")
-        else : 
-            print("It Does not Match :(")
+        # Vérifier que le sérialiseur est valide
+        self.assertTrue(serializer.is_valid(), serializer.errors)
 
-        print(hashed)
+        # ✅ Exécuter create() et vérifier le mot de passe haché
+        saved_admin = serializer.save()
 
+        # ✅ Vérifier que le mot de passe a bien été haché
+        hasher = identify_hasher(saved_admin.password)  # Récupère l'algorithme de hachage utilisé
+        print("Mot de passe après validation :", saved_admin.password)
 
-    # def validate_jwt_token(self, token_to_validate): 
-    #     """Valide un token JWT"""
-    #     secret_key = settings.SECRET_KEY
-    #     algorithm = 'HS256'
+        # ✅ Vérifier que le hash utilise un algorithme sécurisé
+        self.assertIn(hasher.algorithm, ["pbkdf2_sha256", "bcrypt_sha256", "argon2", "scrypt"])
 
-    #     try:
-    #         decoded_payload = jwt.decode(token_to_validate, secret_key, algorithms=[algorithm])
-    #         return decoded_payload
-    #     except jwt.ExpiredSignatureError: 
-    #         return "Token is expired. Please log in again."
-    #     except jwt.InvalidTokenError: 
-    #         return "Invalid token. Access denied."
-    #     return None
-    
-    # def test_submit_token(self, request): 
-    #     """Test de validation d'un token JWT"""
-    #     if request.method == "POST" :
-    #         try :
-    #             data = json.loads(request.body)
-    #         except : 
-    #             return JsonResponse({"message": "Le token n'a pas été reçut."})
+    def test_invalid_email(self):
+        """Test avec un email invalide"""
+        data = {
+            "username": "adminTest",
+            "lastname": "Dupont",
+            "email": "invalid-email",
+            "password": "SecurePass123"
+        }
+        serializer = AdministrateurSerializer(data=data)
+        
+        # Vérifier que le sérialiseur est invalide
+        self.assertFalse(serializer.is_valid())
+
+        # Vérifier que l'erreur concerne bien l'email
+        self.assertIn("email", serializer.errors)
+
+    def test_xss_protection(self):
+          
+         """Test que les scripts XSS sont bien échappés"""
+        
+         data = {
             
-    #     token_to_validate = data
-    #     decoded_payload = self.validate_jwt_token(token_to_validate)
+            "username": "Jean-@<script>alert('hello world')</script>Luc",
+            
+            "lastname": "Dupont",
+            
+            "email": "user@example.com",
+            
+            "password": "password123"
+        
+         }
 
-    #     # Vérifie si le token est bien décodé
-    #     if isinstance(decoded_payload, dict):
-    #         print("Token valide :", decoded_payload)
-    #         self.assertIn("some", decoded_payload)  # Vérifie que la clé "some" est présente
-    #     else:
-    #         print("Erreur :", decoded_payload)
-    #         self.assertTrue(decoded_payload in ["Token is expired. Please log in again.", "Invalid token. Access denied."])
+        
+         serializer = AdministrateurSerializer(data=data)
 
-    # def my_view(request):
-    #     if request.method == "POST":
-    #         try:
-    #             data = json.loads(request.body)  # Convertir JSON en dict
-    #             if data :
+    # Vérifier que le sérialiseur est valide après nettoyage
+        
+         self.assertTrue(serializer.is_valid(), serializer.errors)
 
-    #             return JsonResponse({"message": "Données reçues", "data": data})
-    #         except json.JSONDecodeError:
-    #             return JsonResponse({"error": "JSON invalide"}, status=400)
+    # Vérifier que les valeurs sont bien échappées
+        
+         validated_data = serializer.validated_data
+        
+         print("Username après nettoyage :", validated_data["username"])  # DEBUG
+        
+         print("Lastname après nettoyage :", validated_data["lastname"])  # DEBUG
+
+        
+        
+
+        
