@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from back.utils import generate_jwt  # Import de la fonction
-from back.serializer import AdministrateurSerializer
+from back.serializer import AdministrateurSerializer, loginSerializeur
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse
 import json
@@ -109,46 +109,56 @@ def add_admin(request):
 @permission_classes([AllowAny])
 def login(request):
     if request.method != "POST":
-        return JsonResponse({"error": "Seules les requêtes POST sont autorisées."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-    
-    
+        return JsonResponse(
+            {"error": "Seules les requêtes POST sont autorisées."},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
 
     try:
-        # Lecture sécurisée des données
-        # data = json.loads(request.body)
-        username = request.data.get("username")
-        password = request.data.get("password")
+        # Vérification du token JWT
+        token_to_validate = request.data.get("token")
+        if not token_to_validate:
+            return JsonResponse({"error": "Aucun token fourni."}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not username or not password:
-            return JsonResponse({"error": "Nom d'utilisateur et mot de passe sont requis."}, status=status.HTTP_400_BAD_REQUEST)
+        secret_key = settings.SECRET_KEY
+        try:
+            decoded_payload = jwt.decode(token_to_validate, secret_key, algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token expiré."}, status=status.HTTP_401_UNAUTHORIZED)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Token invalide."}, status=status.HTTP_403_FORBIDDEN)
 
-        # Recherche de l'utilisateur dans les deux tables
+        # Validation des identifiants avec le Serializer
+        serializer = loginSerializeur(data=request.data)
+        if not serializer.is_valid():
+            return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = serializer.validated_data["email"]
+        password = serializer.validated_data["password"]
+
+        # Recherche de l'utilisateur dans Administrateur ou Employes
         user = None
         role = None
 
         try:
-            user = Administrateur.objects.get(username=username)
+            user = Administrateur.objects.get(email=email)
             role = "admin"
         except Administrateur.DoesNotExist:
-            pass
-
-        if not user:
             try:
-                user = Employes.objects.get(username=username)
+                user = Employes.objects.get(email=email)
                 role = "employe"
             except Employes.DoesNotExist:
-                pass
+                return JsonResponse({"error": "Identifiants incorrects."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        if not user or not check_password(password, user.password):
+        # Vérification du mot de passe
+        if not check_password(password, user.password):
             return JsonResponse({"error": "Identifiants incorrects."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Génération des tokens
+        # Génération des tokens JWT
         refresh = RefreshToken.for_user(user)
-        
+
         # Réponse sécurisée
         response = JsonResponse({"username": user.username})
-
-       
 
         # Stocker le JWT dans un cookie HttpOnly sécurisé
         response.set_cookie(
@@ -173,7 +183,10 @@ def login(request):
         return response
 
     except Exception as e:
-        return JsonResponse({"error": f"Erreur inattendue : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return JsonResponse(
+            {"error": f"Erreur inattendue : {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
     
 # @csrf_exempt
 @api_view(['POST'])
