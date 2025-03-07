@@ -39,18 +39,21 @@ def get_csrf_token(request) :
         )
         return response
         
-@csrf_exempt  
+  
 @api_view(['POST'])  # Accepte uniquement les requêtes POST
+@csrf_protect
 @permission_classes([AllowAny])  # Autorise tout le monde à accéder à cette route
 def add_admin(request):
     """Vue pour valider un token JWT et créer un administrateur"""
+    if request.method != "POST" : 
+        return JsonResponse({"error" : "Seul les méthodes POST sont accepter"}, status.HTTP_405_METHOD_NOT_ALLOWED)
 
     try:
         # Récupérer le JSON envoyé
-        data = request.data
+        # data = request.data
 
         # Vérifier si le token est bien présent
-        token_to_validate = data.get("token")
+        token_to_validate = request.data.get("token")
         if not token_to_validate:
             return JsonResponse({"error": "Aucun token fourni"}, status=400)
 
@@ -64,18 +67,18 @@ def add_admin(request):
             return JsonResponse({"error": "Token invalide"}, status=403)
 
         # Préparer les données pour le sérialiseur
-        admin_data = {
-            "username": data.get("username"),
-            "lastname": data.get("lastname"),
-            "email": data.get("email"),
-            "password": data.get("password")
-        }
+        # admin_data = {
+        #     "username": data.get("username"),
+        #     "lastname": data.get("lastname"),
+        #     "email": data.get("email"),
+        #     "password": data.get("password")
+        # }
 
         # Valider les données avec le sérialiseur
-        serializer = AdministrateurSerializer(data=admin_data)
+        serializer = AdministrateurSerializer(data=request.data)
         if serializer.is_valid():
             # Vérifier si l'admin existe déjà (évite les doublons)
-            if Administrateur.objects.filter(email=admin_data["email"]).exists():
+            if Administrateur.objects.filter(email=request.data.get("email")).exists():
                 return JsonResponse({"error": "Un administrateur avec cet email existe déjà."}, status=400)
 
             # Hacher le mot de passe avant la sauvegarde
