@@ -65,9 +65,15 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOW_CREDENTIALS = True
-CORS_ORIGIN_WHITELIST = [
-    'http://localhost:3000',  
+# Sécurité CSRF et CORS
+CSRF_TRUSTED_ORIGINS = ["http://localhost:3000"]  # Autorise React à envoyer le CSRF Token
+CSRF_COOKIE_HTTPONLY = False  # Permet au frontend d'accéder au cookie (si False, il peut être lu par JS)
+CSRF_COOKIE_SECURE = False  # Doit être False en local, True en production (HTTPS)
+CSRF_USE_SESSIONS = False  # Assure-toi qu'il est False pour que le CSRF soit stocké en cookie
+
+CORS_ALLOW_CREDENTIALS = True  # Permet d'envoyer des cookies (comme CSRF)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # Autorise les requêtes du frontend
 ]
 
 
@@ -139,7 +145,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 PASSWORD_HASHERS = [
-    "django.contrib.auth.hashers.BCryptSHA256PasswordHasher",
     "django.contrib.auth.hashers.PBKDF2PasswordHasher",
     "django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher",
     "django.contrib.auth.hashers.Argon2PasswordHasher",

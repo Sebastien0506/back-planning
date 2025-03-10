@@ -3,11 +3,12 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from back.utils import generate_jwt  # Import de la fonction
-from back.serializer import AdministrateurSerializer, loginSerializeur
+from back.serializer import AdministrateurSerializer, LoginSerializer
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse
 import json
 import jwt
+from jwt.exceptions import ExpiredSignatureError, InvalidTokenError, DecodeError
 from django.conf import settings
 from back.models import Administrateur, Employes, Magasin, Contrats
 from django.middleware.csrf import get_token
@@ -15,6 +16,7 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from datetime import datetime
 from django.core.mail import send_mail
+import logging
 
 
 #ROUTE QUI PERMET DE GENERER UN JWT TOKEN
@@ -26,18 +28,20 @@ def generate_temp_token(request):
     token = generate_jwt()  # Génère le JWT
     return Response({"access_token": token}) #On retourne le token en format json
 
+@api_view(["GET"])
+@permission_classes([AllowAny])
+@csrf_exempt
 def get_csrf_token(request) :
-    if request.method == "GET" : 
-        token = get_token(request)
-        response = JsonResponse({"message" : "Jeton CSRF récupérer avec succès."})
-        response.set_cookie(
-            key='csrftoken',
-            value=token,
-            httponly=False,
-            secure=False,
-            samesite="strict"
-        )
-        return response
+    token = get_token(request)
+    response = JsonResponse({"message" : "Jeton CSRF récupérer avec succès."})
+    response.set_cookie(
+        key='csrftoken',
+        value=token,
+        httponly=False,
+        secure=False,
+        samesite="Lax"
+    )
+    return response
         
   
 @api_view(['POST'])  # Accepte uniquement les requêtes POST
@@ -66,13 +70,7 @@ def add_admin(request):
         except jwt.InvalidTokenError:
             return JsonResponse({"error": "Token invalide"}, status=403)
 
-        # Préparer les données pour le sérialiseur
-        # admin_data = {
-        #     "username": data.get("username"),
-        #     "lastname": data.get("lastname"),
-        #     "email": data.get("email"),
-        #     "password": data.get("password")
-        # }
+        
 
         # Valider les données avec le sérialiseur
         serializer = AdministrateurSerializer(data=request.data)
@@ -108,88 +106,75 @@ def add_admin(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 @api_view(['POST'])
-@csrf_protect
 @permission_classes([AllowAny])
 def login(request):
-    if request.method != "POST":
-        return JsonResponse(
-            {"error": "Seules les requêtes POST sont autorisées."},
-            status=status.HTTP_405_METHOD_NOT_ALLOWED
-        )
+    logger = logging.getLogger(__name__)
+    """Authentifie un utilisateur et renvoie un token JWT"""
 
     try:
-        # Vérification du token JWT
-        token_to_validate = request.data.get("token")
-        if not token_to_validate:
-            return JsonResponse({"error": "Aucun token fourni."}, status=status.HTTP_400_BAD_REQUEST)
+        # Vérification des données reçues
+        if not request.data:
+            return Response({"error": "Données manquantes."}, status=status.HTTP_400_BAD_REQUEST)
 
-        secret_key = settings.SECRET_KEY
-        try:
-            decoded_payload = jwt.decode(token_to_validate, secret_key, algorithms=["HS256"])
-        except jwt.ExpiredSignatureError:
-            return JsonResponse({"error": "Token expiré."}, status=status.HTTP_401_UNAUTHORIZED)
-        except jwt.InvalidTokenError:
-            return JsonResponse({"error": "Token invalide."}, status=status.HTTP_403_FORBIDDEN)
 
-        # Validation des identifiants avec le Serializer
-        serializer = loginSerializeur(data=request.data)
+        # Validation des identifiants via le Serializer
+        serializer = LoginSerializer(data=request.data)
         if not serializer.is_valid():
-            return JsonResponse(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         email = serializer.validated_data["email"]
         password = serializer.validated_data["password"]
 
-        # Recherche de l'utilisateur dans Administrateur ou Employes
-        user = None
-        role = None
+        # Recherche de l'utilisateur (Admin ou Employé)
+        user = Administrateur.objects.filter(email=email).first()
+        role = "admin" if user else None
 
-        try:
-            user = Administrateur.objects.get(email=email)
-            role = "admin"
-        except Administrateur.DoesNotExist:
-            try:
-                user = Employes.objects.get(email=email)
-                role = "employe"
-            except Employes.DoesNotExist:
-                return JsonResponse({"error": "Identifiants incorrects."}, status=status.HTTP_401_UNAUTHORIZED)
+        if not user:
+            user = Employes.objects.filter(email=email).first()
+            role = "employe" if user else None
+
+        if not user:
+            logger.warning(f"Utilisateur non trouvé avec email : {email}")
+            return Response({"error": "Identifiants incorrects."}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Vérification du mot de passe
         if not check_password(password, user.password):
-            return JsonResponse({"error": "Identifiants incorrects."}, status=status.HTTP_401_UNAUTHORIZED)
+            logger.warning(f"Mot de passe incorrect pour l'utilisateur: {user.email}")
+            return Response({"error": "Identifiants incorrects."}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Génération des tokens JWT
         refresh = RefreshToken.for_user(user)
 
-        # Réponse sécurisée
-        response = JsonResponse({"username": user.username})
+        # Création de la réponse sécurisée
+        response = Response({
+            "username": user.username,
+            "role": role
+        })
 
-        # Stocker le JWT dans un cookie HttpOnly sécurisé
+        # Stockage du token JWT en HttpOnly Cookie sécurisé
         response.set_cookie(
             key='access_token',
             value=str(refresh.access_token),
             httponly=True,
             secure=True,
             samesite='Strict',
-            max_age=3600
+            max_age=3600,
         )
 
-        # Stocker le rôle pour le frontend
+        # Stocker le rôle pour le frontend (accessible par JS)
         response.set_cookie(
             key='user_role',
             value=role,
             httponly=False,
             secure=True,
             samesite='Strict',
-            max_age=3600
+            max_age=3600,
         )
 
         return response
 
     except Exception as e:
-        return JsonResponse(
-            {"error": f"Erreur inattendue : {str(e)}"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        return Response({"error": f"Erreur serveur : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 # @csrf_exempt
 @api_view(['POST'])
