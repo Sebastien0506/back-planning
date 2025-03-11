@@ -1,7 +1,7 @@
 from django.views.decorators.csrf import csrf_protect, csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from back.utils import generate_jwt  # Import de la fonction
 from back.serializer import AdministrateurSerializer, LoginSerializer
 from django.contrib.auth.hashers import make_password, check_password
@@ -18,6 +18,21 @@ from datetime import datetime
 from django.core.mail import send_mail
 import logging
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_user_role(request) : 
+    if request.method != 'GET' :
+        return JsonResponse({"error" : "La méthode doit être POST"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+    
+    try : 
+        user_role = request.COOKIES.get("user_role")
+        if not user_role : 
+            return Response({"error" : "Utilisateur non authentifié."}, status=status.HTTP_401_UNAUTHORIZED)
+        return Response({"role" : user_role})
+    except Exception as e : 
+        return Response({"error" : f"Erreur serveur :{str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    
 
 #ROUTE QUI PERMET DE GENERER UN JWT TOKEN
 # @csrf_exempt #On désactive temporairement le csrf
@@ -39,77 +54,59 @@ def get_csrf_token(request) :
         value=token,
         httponly=False,
         secure=False,
-        samesite="Lax"
+        samesite="Strict"
     )
     return response
         
   
-@api_view(['POST'])  # Accepte uniquement les requêtes POST
-@csrf_protect
-@permission_classes([AllowAny])  # Autorise tout le monde à accéder à cette route
+@api_view(['POST'])
+@permission_classes([AllowAny])
 def add_admin(request):
-    """Vue pour valider un token JWT et créer un administrateur"""
-    if request.method != "POST" : 
-        return JsonResponse({"error" : "Seul les méthodes POST sont accepter"}, status.HTTP_405_METHOD_NOT_ALLOWED)
-
     try:
-        # Récupérer le JSON envoyé
-        # data = request.data
+        # Stocker les données de la requête dans une variable pour éviter de relire request.data plusieurs fois
+        data = request.data  
 
-        # Vérifier si le token est bien présent
-        token_to_validate = request.data.get("token")
-        if not token_to_validate:
-            return JsonResponse({"error": "Aucun token fourni"}, status=400)
+        if not data:
+            return Response({"error": "Les données sont manquantes."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Décoder le token JWT
-        secret_key = settings.SECRET_KEY
-        try:
-            decoded_payload = jwt.decode(token_to_validate, secret_key, algorithms=["HS256"])
-        except jwt.ExpiredSignatureError:
-            return JsonResponse({"error": "Token expiré"}, status=401)
-        except jwt.InvalidTokenError:
-            return JsonResponse({"error": "Token invalide"}, status=403)
-
-        
+        # Vérifier si un administrateur avec cet email existe déjà
+        if Administrateur.objects.filter(email=data.get("email")).exists():
+            return Response({"error": "Un administrateur avec cet email existe déjà."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Valider les données avec le sérialiseur
-        serializer = AdministrateurSerializer(data=request.data)
+        serializer = AdministrateurSerializer(data=data)
         if serializer.is_valid():
-            # Vérifier si l'admin existe déjà (évite les doublons)
-            if Administrateur.objects.filter(email=request.data.get("email")).exists():
-                return JsonResponse({"error": "Un administrateur avec cet email existe déjà."}, status=400)
-
-            # Hacher le mot de passe avant la sauvegarde
+            # Hacher le mot de passe avant de sauvegarder
             serializer.validated_data['password'] = make_password(serializer.validated_data['password'])
 
-            # Sauvegarder l'administrateur
-            serializer.save()
+            # Créer et sauvegarder l'administrateur avec les données modifiées
+            admin = Administrateur(**serializer.validated_data)
+            admin.save()
 
-            # Retourner une réponse JSON de succès
-            return JsonResponse({
-                "message": "Administrateur créé avec succès",
-                "payload": decoded_payload,
-                "user_info": {
-                    "username": serializer.data["username"],
-                    "lastname": serializer.data["lastname"],
-                    "email": serializer.data["email"]
-                }
-            }, status=201)
+            response = Response({"message": "Administrateur créé avec succès."}, status=status.HTTP_201_CREATED)
+
+            # Définir un cookie sécurisé pour stocker le rôle
+            response.set_cookie(
+                key="user_role",
+                value="admin",
+                httponly=False,
+                secure=False,
+                samesite="Strict",
+            )
+
+            return response
         else:
-            # Retourner les erreurs de validation
-            return JsonResponse({"errors": serializer.errors}, status=400)
+            return Response({"errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "JSON invalide"}, status=400)
     except Exception as e:
-        # Gérer les erreurs imprévues
-        return JsonResponse({"error": str(e)}, status=500)
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login(request):
     logger = logging.getLogger(__name__)
-    """Authentifie un utilisateur et renvoie un token JWT"""
+    
 
     try:
         # Vérification des données reçues
@@ -147,7 +144,6 @@ def login(request):
 
         # Création de la réponse sécurisée
         response = Response({
-            "username": user.username,
             "role": role
         })
 
@@ -161,13 +157,21 @@ def login(request):
             max_age=3600,
         )
 
-        # Stocker le rôle pour le frontend (accessible par JS)
+        
         response.set_cookie(
-            key='user_role',
-            value=role,
-            httponly=False,
+            key='user_id',
+            value=user.id,
+            httponly=True,
             secure=True,
             samesite='Strict',
+            max_age=3600,
+        )
+        response.set_cookie(
+            key="user_role",
+            value=role,
+            httponly=True,
+            secure=True,
+            samesite="Strict",
             max_age=3600,
         )
 

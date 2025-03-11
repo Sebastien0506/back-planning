@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 
 
 class Administrateur(models.Model):
-    username = models.CharField(max_length=50, unique=True)
+    username = models.CharField(max_length=50)
     lastname = models.CharField(max_length=50)
     email = models.EmailField(max_length=50, unique=True)  # Email unique
     password = models.CharField(max_length=128)  # Stocke le hash du mot de passe
@@ -13,7 +13,7 @@ class Administrateur(models.Model):
     
 
 class Employes(models.Model) : 
-    username = models.CharField(max_length=50, unique=True)
+    username = models.CharField(max_length=50)
     lastname = models.CharField(max_length=50)
     email = models.EmailField(max_length=50, unique=True) 
     password = models.CharField(max_length=128)
