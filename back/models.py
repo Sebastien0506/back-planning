@@ -54,5 +54,11 @@ class Planning(models.Model) :
     employes = models.ManyToManyField(Employes)
 
 
+class BlacklistedToken(models.Model) : 
+    token = models.TextField(unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+
             
 

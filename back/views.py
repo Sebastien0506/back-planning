@@ -2,7 +2,6 @@ from django.views.decorators.csrf import csrf_protect, csrf_exempt
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from back.utils import generate_jwt  # Import de la fonction
 from back.serializer import AdministrateurSerializer, LoginSerializer
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse
@@ -10,17 +9,55 @@ import json
 import jwt
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError, DecodeError
 from django.conf import settings
-from back.models import Administrateur, Employes, Magasin, Contrats
+from back.models import Administrateur, Employes, Magasin, Contrats, BlacklistedToken
 from django.middleware.csrf import get_token
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from datetime import datetime
-from django.core.mail import send_mail
+from rest_framework_simplejwt.tokens import RefreshToken
 import logging
+from back.utils import generate_jwt, decoded_jwt
+
+    
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout(request) : 
+    ###
+    # CODE POUR GÉRER LA DECONNEXION
+    # ####
+    try : 
+        access_token = request.COOKIES.get('access_token')
+
+        if not access_token : 
+            return Response({"error" : "Aucun token trouvé"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        BlacklistedToken.objects.create(token=access_token)
+        refresh_token = request.data.get('refresh_token')
+
+        if refresh_token : 
+            try :
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+            except Exception as e : 
+                return Response({"error" : f"Erreur lors de la révocations du refresh token : {str(e)}"},
+                                status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+        response = Response({"message" : "déconnexion réussie."}, status=status.HTTP_200_OK)
+        response.delete_cookie('access_token')
+        response.delete_cookie("user_id")
+        response.delete_cookie('user_role')
+
+        return response
+    except Exception as e : 
+        return Response({"error" : f"Erreur serveur : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_user_role(request) : 
+    #
+    # CODE POUR RÉCUPERER LE ROLE DE L'UTILISATEUR
+    # #
     if request.method != 'GET' :
         return JsonResponse({"error" : "La méthode doit être POST"}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
     
@@ -32,21 +69,15 @@ def get_user_role(request) :
     except Exception as e : 
         return Response({"error" : f"Erreur serveur :{str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    
 
-#ROUTE QUI PERMET DE GENERER UN JWT TOKEN
-# @csrf_exempt #On désactive temporairement le csrf
-@api_view(['POST'])
-@permission_classes([AllowAny]) #On dit que tous le monde peut y acceder
-def generate_temp_token(request):
-    """Génère un JWT temporaire pour un utilisateur non inscrit"""
-    token = generate_jwt()  # Génère le JWT
-    return Response({"access_token": token}) #On retourne le token en format json
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 @csrf_exempt
 def get_csrf_token(request) :
+    ###
+    # CODE POUR GÉNERER UN TOKEN
+    # ###
     token = get_token(request)
     response = JsonResponse({"message" : "Jeton CSRF récupérer avec succès."})
     response.set_cookie(
@@ -140,23 +171,21 @@ def login(request):
             return Response({"error": "Identifiants incorrects."}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Génération des tokens JWT
-        refresh = RefreshToken.for_user(user)
+        # refresh = RefreshToken.for_user(user)
 
+        jwt = generate_jwt()
         # Création de la réponse sécurisée
         response = Response({
             "role": role
         })
-
-        # Stockage du token JWT en HttpOnly Cookie sécurisé
+        
         response.set_cookie(
-            key='access_token',
-            value=str(refresh.access_token),
+            key="access_token",
+            value=jwt,
             httponly=True,
             secure=True,
-            samesite='Strict',
-            max_age=3600,
+            samesite="Strict",
         )
-
         
         response.set_cookie(
             key='user_id',
@@ -181,93 +210,17 @@ def login(request):
         return Response({"error": f"Erreur serveur : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 # @csrf_exempt
-@api_view(['POST'])
-@permission_classes(Administrateur)
-def add_employes(request) :
-    if request.method == 'POST' : 
-        try : 
-            data = json.loads(request.body)
-
-            username = data.get('username')
-            lastname = data.get('lastname')
-            email = data.get('email')
-            heure_debut_str = data.get('horaire_debut')
-            heure_fin_str = data.get('horaire_fin')
-
-            try : 
-                start_job = datetime.strptime(heure_debut_str, "%H:%M").time()
-                end_job = datetime.strptime(heure_fin_str, "%H:%M").time()
-            except :
-                return JsonResponse({"error" : "Format d'heure invalide. Format attendu : HH:MM"})
-            
-            if not all(isinstance(field, str) for field in [username, lastname, email]) :
-                return JsonResponse({"error" : "Tous les champs doivent être des chaines de caractères." }, status=status.HTTP_400_BAD_REQUEST)
-            
-            jours_de_travail = data.get("jours_de_travail")
-            jours_valide = ["lundi", "mardi", "mercrdi", "jeudi", "vendredi", "samedi", "dimanche"]
-
-            if not isinstance(jours_de_travail, dict):
-                return JsonResponse({"error" : "Le champ 'jours_de_travail', doit être un dictionnaire."}, status=status.HTTP_400_BAD_REQUEST)
-            
-
-            for jour, valeur in jours_de_travail.item() : 
-                jour_normalise = jour.strip().lower()
-                if jour_normalise not in jours_valide : 
-                    return JsonResponse({"error" : f"Le jour '{jour}' n'est pas une valeur valide."}, status=status.HTTP_400_BAD_REQUEST)
-                if valeur.strip().lower() != "travail" : 
-                    return JsonResponse({"error" : f"La valeur associée au jour '{jour}' doit être 'travail'. "}, status=status.HTTP_400_BAD_REQUEST)
-            
-            #Envoie du mail pour que l'employer renseigne sont mot de passe
-            send_mail(
-                subject='Inscription',
-                message="Vous avez été enregistrer veuillez modifier votre mot de passe en cliquant sur ce lien.",
-                from_email='From generatePlanning@gmail.com',
-                 html_message="""
-        <p>Vous avez été enregistré. Veuillez modifier votre mot de passe en cliquant sur ce lien :</p>
-        <p><a href="https://example.com/reset-password/">Modifier mon mot de passe</a></p>
-    """
-            )
-            return JsonResponse({"message" : "Jours de travail valide."}, status=status.HTTP_200_OK)
-        except : 
-            return JsonResponse({"error" : "Erreur lors de la création de l'employer."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+@api_view(["POST"])
+@permission_classes([Administrateur])  # Correction de la syntaxe
+def add_employes(request):
+    
         
 
 @api_view(['POST'])
 # @csrf_exempt
 @permission_classes([AllowAny])
 def add_shop(request):
-    if request.method != 'POST':
-        return JsonResponse({"error": "Seules les requêtes POST sont autorisées."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    try:
-        # Charger les données JSON
-        data = json.loads(request.body)
-
-        # Récupération et validation du champ "name"
-        name_shop = data.get('name')
-
-        # Vérifier que le champ est une chaîne et non vide
-        if not isinstance(name_shop, str) or not name_shop.strip():
-            return JsonResponse(
-                {"error": "Le champ 'name' doit être une chaîne de caractères non vide."}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Création et sauvegarde du nouveau magasin
-        new_shop = Magasin(name=name_shop.strip())
-        new_shop.save()
-
-        # Retourner une réponse de succès
-        return JsonResponse(
-            {"message": f"La boutique '{name_shop}' a été créée avec succès."},
-            status=status.HTTP_201_CREATED
-        )
-
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Le format JSON est invalide."}, status=status.HTTP_400_BAD_REQUEST)
-
-    except Exception as e:
-        return JsonResponse({"error": f"Erreur lors de la création de la boutique : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
     
     
 
@@ -275,41 +228,7 @@ def add_shop(request):
 # @csrf_exempt
 @permission_classes([AllowAny])
 def add_contrat(request):
-    # Vérifier que la méthode est POST
-    if request.method != 'POST':
-        return JsonResponse({"error": "Seules les requêtes POST sont autorisées."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    try:
-        # Charger et vérifier les données JSON
-        data = json.loads(request.body)
-        contrat = data.get("type_de_contrat")
-
-        # Validation du champ "type_de_contrat"
-        if not isinstance(contrat, str) or not contrat.strip():
-            return JsonResponse({"error": "Le champ 'type_de_contrat' doit être une chaîne de caractères non vide."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Optionnel : restreindre les contrats autorisés
-        contrats_autorises = ["CDI", "CDD", "Stage"]
-        if contrat.strip() not in contrats_autorises:
-            return JsonResponse({
-                "error": f"Le type de contrat '{contrat}' n'est pas autorisé. Types autorisés : {', '.join(contrats_autorises)}."
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        # Création et sauvegarde du contrat
-        new_contrat = Contrats(type_de_contrat=contrat.strip())
-        new_contrat.save()
-
-        # Réponse de succès
-        return JsonResponse({
-            "message": f"Le contrat '{contrat}' a été ajouté avec succès.",
-            "contrat": contrat.strip()
-        }, status=status.HTTP_201_CREATED)
-
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Le format JSON est invalide."}, status=status.HTTP_400_BAD_REQUEST)
-
-    except Exception as e:
-        return JsonResponse({"error": f"Erreur lors de la création du contrat : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+   
     
         
  
