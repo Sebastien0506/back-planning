@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     'corsheaders',
     
 ]
-
+AUTH_USER_MODEL = "back.User"
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 # EMAIL_HOST = 'smtp.yourserver.com'
 # EMAIL_PORT = '<your-server-port>'
@@ -80,15 +80,18 @@ CORS_ALLOWED_ORIGINS = [
 REST_FRAMEWORK = {
     # Authentification avec JWT
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',  # ✅ À mettre ici
+        # 'rest_framework.authentication.SessionAuthentication',
+        # 'rest_framework.authentication.BasicAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
 
     # Permissions : permet aux utilisateurs authentifiés d'accéder aux données
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',
+        # 'rest_framework.permissions.DjangoModelPermissionsOrAnonReadOnly',
         'rest_framework.permissions.AllowAny', 
     ],
 }
+
 
 ROOT_URLCONF = 'planningBack.urls'
 
