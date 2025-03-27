@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from back.serializer import AdministrateurSerializer, LoginSerializer, EmployeTravailSerializer
+from back.serializer import UserSerializer
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse
 import json
@@ -17,7 +17,7 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from datetime import datetime
 import logging
-from back.utils import generate_jwt, decoded_jwt
+# from back.utils import generate_jwt, decoded_jwt
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import get_user_model
 
@@ -118,13 +118,14 @@ def add_admin(request):
             return Response({"error": "Un administrateur avec cet email existe déjà."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Valider les données avec le sérialiseur
-        serializer = AdministrateurSerializer(data=data)
+        serializer = UserSerializer(data=data)
         if serializer.is_valid():
             # Hacher le mot de passe avant de sauvegarder
             serializer.validated_data['password'] = make_password(serializer.validated_data['password'])
 
             # Créer et sauvegarder l'administrateur avec les données modifiées
             user = User(**serializer.validated_data)
+            user.role = "admin"
             user.save()
 
             response = Response({"message": "Administrateur créé avec succès."}, status=status.HTTP_201_CREATED)
