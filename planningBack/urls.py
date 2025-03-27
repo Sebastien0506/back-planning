@@ -6,7 +6,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView
 )
-from back.views import add_admin, get_csrf_token# ✅ Import de la vue
+from back.views import add_admin, get_csrf_token, login, get_user_role# ✅ Import de la vue
 
 # Serializers define the API representation.
 User = get_user_model()
@@ -34,10 +34,10 @@ urlpatterns = [
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('api/add_admin/', add_admin, name='add_admin'),
     path('get_csrf_token/', get_csrf_token, name='get_csrf_token'),
-    # path('api/login/', login, name='login'),
+    path('api/login/', login, name='login'),
     # path('api/add_shop/', add_shop, name='add_shop'),
     # path('api/add_contrat/', add_contrat, name='add_contrat'),
     # path('api/logout/', logout, name='logout'),
-    # path('api/get_user_role/', get_user_role, name='get_user_role'),
+    path('api/get_user_role/', get_user_role, name='get_user_role'),
     
 ]

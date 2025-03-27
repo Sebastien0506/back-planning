@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from back.serializer import UserSerializer
+from back.serializer import UserSerializer, LoginSerializer
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse
 import json
@@ -15,13 +15,15 @@ from back.models import User
 from django.middleware.csrf import get_token
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+import traceback
 from datetime import datetime
 import logging
 # from back.utils import generate_jwt, decoded_jwt
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import get_user_model
 
-    
+User = get_user_model()
 # @api_view(['POST'])
 # @permission_classes([IsAuthenticated])
 # def logout(request) : 
@@ -57,28 +59,29 @@ from django.contrib.auth import get_user_model
 #     return JsonResponse({"message" : "Déconnexion réussie"}, status=status.HTTP_200_OK)
 
 
-# # @login_required
-# @api_view(["GET"])
-# @permission_classes([AllowAny])
-# def get_user_role(request):
-#     token = request.COOKIES.get("access_token")
+# @login_required
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def get_user_role(request):
+    token = request.COOKIES.get("access_token")
 
-#     if not token : 
-#         return Response({"error" : "Token manquant"}, status=status.HTTP_401_UNAUTHORIZED)
-#     jwt_auth = JWTAuthentication()
-#     try : 
-#         validated_token = jwt_auth.get_validated_token(token)
-#         user = jwt_auth.get_user(validated_token)
-#     except Exception as e : 
-#         return Response({"error" : "Token invalide ou expiré"}, status=status.HTTP_401_UNAUTHORIZED)
-    
-#     if Administrateur.objects.filter(id=user.id).exists() : 
-#         role = "admin"
-#     elif Employes.objects.filter(id=user.id).exists() : 
-#         role = "employe"
-#     else :
-#         role = "unknow"
-#     return Response({"role" : role}, status=status.HTTP_200_OK)
+    if not token:
+        print("❌ Pas de token dans les cookies")
+        return Response({"error": "Token manquant"}, status=status.HTTP_401_UNAUTHORIZED)
+
+    jwt_auth = JWTAuthentication()
+    try:
+        validated_token = jwt_auth.get_validated_token(token)
+        user = jwt_auth.get_user(validated_token)
+    except Exception as e:
+        print("❌ Erreur inconnue lors de la validation du token :")
+        traceback.print_exc()  # 🔥 Affiche tout dans le terminal
+        response = Response({"error": "Token invalide ou expiré"}, status=status.HTTP_401_UNAUTHORIZED)
+        response.delete_cookie("access_token")
+        return response
+
+    role = user.role if hasattr(user, 'role') else "unknown"
+    return Response({"role": role}, status=status.HTTP_200_OK)
     
     
 
@@ -98,7 +101,7 @@ def get_csrf_token(request) :
         value=token,
         httponly=False,
         secure=False,
-        samesite="Strict"
+        samesite="None"
     )
     return response
         
@@ -130,13 +133,15 @@ def add_admin(request):
 
             response = Response({"message": "Administrateur créé avec succès."}, status=status.HTTP_201_CREATED)
 
-            # Définir un cookie sécurisé pour stocker le rôle
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+
             response.set_cookie(
-                key="user_role",
-                value="admin",
-                httponly=False,
+                key="access_token",
+                value=access_token,
+                httponly=True,
                 secure=False,
-                samesite="Strict",
+                samesite="None",
             )
 
             return response
@@ -147,74 +152,60 @@ def add_admin(request):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
-# @api_view(['POST'])
-# @permission_classes([AllowAny])
-# def login(request):
-#     logger = logging.getLogger(__name__)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def login(request):
+    logger = logging.getLogger(__name__)
     
 
-#     try:
-#         # Vérification des données reçues
-#         if not request.data:
-#             return Response({"error": "Données manquantes."}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        # Vérification des données reçues
+        if not request.data:
+            return Response({"error": "Données manquantes."}, status=status.HTTP_400_BAD_REQUEST)
 
 
-#         # Validation des identifiants via le Serializer
-#         serializer = LoginSerializer(data=request.data)
-#         if not serializer.is_valid():
-#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Validation des identifiants via le Serializer
+        serializer = LoginSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-#         email = serializer.validated_data["email"]
-#         password = serializer.validated_data["password"]
+        email = serializer.validated_data["email"]
+        password = serializer.validated_data["password"]
 
-#         # Recherche de l'utilisateur (Admin ou Employé)
-#         user = Administrateur.objects.filter(email=email).first()
-#         role = "admin" if user else None
+        # Recherche de l'utilisateur
+        user = User.objects.filter(email=email).first()
+        #Si l'utilisateur n'est pas dans la base de donnée on renvoi un message d'erreur.
+        if not user : 
+            return Response({"error" : "Utilisateur non trouvée."}, status=status.HTTP_401_UNAUTHORIZED)
 
-#         if not user:
-#             user = Employes.objects.filter(email=email).first()
-#             role = "employe" if user else None
+        # Vérification du mot de passe
+        if not check_password(password, user.password):
+            logger.warning(f"Mot de passe incorrect pour l'utilisateur: {user.email}")
+            return Response({"error": "Identifiants incorrects."}, status=status.HTTP_401_UNAUTHORIZED)
 
-#         if not user:
-#             logger.warning(f"Utilisateur non trouvé avec email : {email}")
-#             return Response({"error": "Identifiants incorrects."}, status=status.HTTP_401_UNAUTHORIZED)
+        # Génération des tokens JWT
+        # refresh = RefreshToken.for_user(user)
 
-#         # Vérification du mot de passe
-#         if not check_password(password, user.password):
-#             logger.warning(f"Mot de passe incorrect pour l'utilisateur: {user.email}")
-#             return Response({"error": "Identifiants incorrects."}, status=status.HTTP_401_UNAUTHORIZED)
-
-#         # Génération des tokens JWT
-#         # refresh = RefreshToken.for_user(user)
-
-#         refresh = RefreshToken.for_user(user)
-#         access_token = str(refresh.access_token)
-#         # Création de la réponse sécurisée
-#         response = Response({
-#             "role": role
-#         })
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        # Création de la réponse sécurisée
+        response = Response({
+            "message" : "Connexion réussie"
+        })
         
-#         response.set_cookie(
-#             key="access_token",
-#             value=access_token,
-#             httponly=True,
-#             secure=True,
-#             samesite="Strict",
-#         )
-        
-#         response.set_cookie(
-#             key="user_role",
-#             value=role,
-#             httponly=True,
-#             secure=True,
-#             samesite="Strict",
-#             max_age=3600,
-#         )
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False,
+            samesite="None",
+            max_age=300
+        )
 
-#         return response
+        return response
 
-#     except Exception as e:
-#         return Response({"error": f"Erreur serveur : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception as e:
+        return Response({"error": f"Erreur serveur : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 # # # @csrf_exempt
 # @api_view(["POST"])

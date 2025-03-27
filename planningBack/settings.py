@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -23,7 +24,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv()
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv("SECRET_KEY")
-
+if not SECRET_KEY :
+    raise Exception("SECRET_KEY manquant dans .env")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
@@ -55,8 +57,8 @@ AUTH_USER_MODEL = "back.User"
 # EMAIL_USE_SSL = False
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -65,17 +67,30 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME" : timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME" : timedelta(days=1),
+    "ROTATE_REFRESH_TOKEN" : False,
+    "BLACKLIST_AFTER_ROTATE" :False,
+    "UPDATE_LAST_LOGIN" : False,
+
+    "ALGORITHM" : "HS256",
+    "SIGNING_KEY" : SECRET_KEY
+}
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # Autorise les requêtes du frontend
+]
 # Sécurité CSRF et CORS
+SESSION_COOKIE_SAMESITE = "None"
+SESSION_COOKIE_SECURE = False
 CSRF_TRUSTED_ORIGINS = ["http://localhost:3000"]  # Autorise React à envoyer le CSRF Token
 CSRF_COOKIE_HTTPONLY = False  # Permet au frontend d'accéder au cookie (si False, il peut être lu par JS)
+CSRF_COOKIE_SAMESITE = "None"
 CSRF_COOKIE_SECURE = False  # Doit être False en local, True en production (HTTPS)
 CSRF_USE_SESSIONS = False  # Assure-toi qu'il est False pour que le CSRF soit stocké en cookie
 
 CORS_ALLOW_CREDENTIALS = True  # Permet d'envoyer des cookies (comme CSRF)
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Autorise les requêtes du frontend
-]
-
 
 REST_FRAMEWORK = {
     # Authentification avec JWT
