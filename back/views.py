@@ -7,8 +7,6 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from back.serializer import UserSerializer, LoginSerializer
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse
-import json
-import jwt
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError, DecodeError
 from django.conf import settings
 from back.models import User
@@ -22,41 +20,32 @@ import logging
 # from back.utils import generate_jwt, decoded_jwt
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import get_user_model
+from rest_framework.views import APIView
+from rest_framework import status, permissions
 
 User = get_user_model()
-# @api_view(['POST'])
-# @permission_classes([IsAuthenticated])
-# def logout(request) : 
-    ###
-    # CODE POUR GÉRER LA DECONNEXION
-    # ####
-    # try : 
-    #     access_token = request.COOKIES.get('access_token')
+class LogoutView(APIView) :
+    permission_classes = [permissions.IsAuthenticated]
 
-    #     if not access_token : 
-    #         return Response({"error" : "Aucun token trouvé"}, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request) : 
+        refresh_token = request.COOKIES.get('refresh_token')
+        if refresh_token is None : 
+            return Response({"detail" : "Refresh token non trouvé dans les cookies."}, status=status.HTTP_400_BAD_REQUEST)
         
-    #     BlacklistedToken.objects.create(token=access_token)
-    #     refresh_token = request.data.get('refresh_token')
-
-    #     if refresh_token : 
-    #         try :
-    #             token = RefreshToken(refresh_token)
-    #             token.blacklist()
-    #         except Exception as e : 
-    #             return Response({"error" : f"Erreur lors de la révocations du refresh token : {str(e)}"},
-    #                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        try : 
+            token = RefreshToken(refresh_token)
+            token.blacklist()
             
-    #     response = Response({"message" : "déconnexion réussie."}, status=status.HTTP_200_OK)
-    #     response.delete_cookie('access_token')
-    #     response.delete_cookie("user_id")
-    #     response.delete_cookie('user_role')
+        
+        except (TokenError, InvalidToken) :
+            return Response({"detail" : "Token invalide ou déjà blacklisté."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        response = Response({"detail" : "Déconnexion réussie."}, status=status.HTTP_205_RESET_CONTENT)
+        response.delete_cookie('access_token')
+        response.delete_cookie('refresh_token')
+        return response
 
-    #     return response
-    # except Exception as e : 
-    #     return Response({"error" : f"Erreur serveur : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-#     logout(request)
-#     return JsonResponse({"message" : "Déconnexion réussie"}, status=status.HTTP_200_OK)
+    
 
 
 # @login_required
@@ -186,13 +175,20 @@ def login(request):
         # Génération des tokens JWT
         # refresh = RefreshToken.for_user(user)
 
-        refresh = RefreshToken.for_user(user)
-        access_token = str(refresh.access_token)
+        refresh_token = RefreshToken.for_user(user)
+        access_token = str(refresh_token.access_token)
         # Création de la réponse sécurisée
         response = Response({
             "message" : "Connexion réussie"
         })
-        
+        response.set_cookie(
+            key='refresh_token',
+            value=refresh_token,
+            httponly=True,
+            secure=True,
+            samesite='None',
+            max_age=300
+        )
         response.set_cookie(
             key="access_token",
             value=access_token,

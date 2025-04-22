@@ -23,6 +23,10 @@ class User(AbstractUser) :
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
+class Magasin(models.Model) : 
+    name = models.CharField(max_length=50, unique=True)
+    user = models.ManyToManyField(User)
+
 
 
 

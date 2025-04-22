@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     
 ]
@@ -70,12 +71,13 @@ MIDDLEWARE = [
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME" : timedelta(minutes=5),
     "REFRESH_TOKEN_LIFETIME" : timedelta(days=1),
-    "ROTATE_REFRESH_TOKEN" : False,
-    "BLACKLIST_AFTER_ROTATE" :False,
+    "ROTATE_REFRESH_TOKEN" : True,
+    "BLACKLIST_AFTER_ROTATE" :True,
     "UPDATE_LAST_LOGIN" : False,
 
     "ALGORITHM" : "HS256",
-    "SIGNING_KEY" : SECRET_KEY
+    "SIGNING_KEY" : SECRET_KEY,
+    "ATUH_TOKEN_CLASSES" : ('rest_framework_simplejwt.tokens.AccessToken'),
 }
 
 CORS_ALLOWED_ORIGINS = [
@@ -139,7 +141,7 @@ DATABASES = {
         "USER": "postgres",
         "PASSWORD": "admin",
         "HOST": "127.0.0.1",
-        "PORT": "5433",
+        "PORT": "5432",
     }
 }
 
