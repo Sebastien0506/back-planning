@@ -225,6 +225,26 @@ class LoginSerializer(serializers.Serializer) :
 
         return value 
 
+class ShopSerializer(serializers.Serializer) : 
+    name = serializers.CharField()
+    # Échappe tous les caractès html
+    def clean_input(self, value) : 
+        return html.escape(value)
+    
+    def validate_name(self, value) :
+        cleaned_value = self.clean_input(value)
+        #Supprime les espaces au début et à la fin
+        cleaned_value = cleaned_value.strip()
+        # Vérifie si le champ contient au moin une lettre 
+        if len(cleaned_value) < 1 : 
+            raise serializers.ValidationError("Le champ du formulaire doit contenir au moins une lettre.")
+        #Vérifie si les caractères sont des caractères autorisé
+        if not cleaned_value.isalnum() : 
+            raise serializers.ValidationError("Données incorrect. Seules les lettres et les chiffres sont autorisés.")
         
+
+        
+
+    
     
 

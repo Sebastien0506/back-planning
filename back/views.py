@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from back.serializer import UserSerializer, LoginSerializer
+from back.serializer import UserSerializer, LoginSerializer, ShopSerializer
 from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError, DecodeError
@@ -202,6 +202,17 @@ def login(request):
 
     except Exception as e:
         return Response({"error": f"Erreur serveur : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+class AddShopView(APIView) :
+    @api_view(["POST"])
+    @permission_classes([IsAuthenticated])
+    def add_shop(request):
+        if not request.data :
+            return Response ({"error" : "Données manquantes."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        serializer = ShopSerializer(data=request.data)
+        
+        
+
     
 # # # @csrf_exempt
 # @api_view(["POST"])
