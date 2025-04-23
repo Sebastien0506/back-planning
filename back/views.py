@@ -9,7 +9,7 @@ from django.contrib.auth.hashers import make_password, check_password
 from django.http import JsonResponse
 from jwt.exceptions import ExpiredSignatureError, InvalidTokenError, DecodeError
 from django.conf import settings
-from back.models import User
+from back.models import User, Magasin
 from django.middleware.csrf import get_token
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -117,7 +117,7 @@ def add_admin(request):
 
             # Créer et sauvegarder l'administrateur avec les données modifiées
             user = User(**serializer.validated_data)
-            user.role = "admin"
+            user.role = "superadmin"
             user.save()
 
             response = Response({"message": "Administrateur créé avec succès."}, status=status.HTTP_201_CREATED)
@@ -202,15 +202,58 @@ def login(request):
 
     except Exception as e:
         return Response({"error": f"Erreur serveur : {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-class AddShopView(APIView) :
-    @api_view(["POST"])
-    @permission_classes([IsAuthenticated])
-    def add_shop(request):
-        if not request.data :
-            return Response ({"error" : "Données manquantes."}, status=status.HTTP_400_BAD_REQUEST)
+    
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def add_shop(request):
+    try:
         
+        # Vérification du rôle AVANT TOUT
+        if request.user.role != "superadmin":
+            return Response({"error": "Vous n'avez pas la permission de créer un magasin.", "debug_role" : request.user.role }, status=status.HTTP_403_FORBIDDEN)
+
+        if not request.data:
+            return Response({"error": "Les données sont manquantes."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Initialisation du serializer avec uniquement le nom du magasin
         serializer = ShopSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # Sauvegarde du magasin
+        magasin = serializer.save()
+
+        # Association de l'utilisateur connecté
+        magasin.created_by.add(request.user)
+        magasin.save()
+
+        return Response({
+            "message": "Magasin créé et associé avec succès.",
+            "magasin_id" : magasin.id
+        }, status=status.HTTP_201_CREATED)
+
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)  
         
+            
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def delete_shop(request, shop_id) :
+    if request.user.role != "superadmin" : 
+        return Response({"error" : "Vous n'avez pas la permission de supprimer un magasin."},
+                        status=status.HTTP_403_FORBIDDEN)
+    try : 
+        magasin = Magasin.objects.get(id=shop_id)
+        magasin.delete()
+        return Response({"message" : "Magasin supprimé avec succès."}, status=status.HTTP_200_OK)
+    except Magasin.DoesNotExist : 
+        return Response({"error" : "Magasin introuvable."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e : 
+        return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+     
+
         
 
     

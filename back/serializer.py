@@ -4,6 +4,7 @@ from django.contrib.auth.hashers import make_password, check_password
 import html
 from datetime import time, datetime
 from django.contrib.auth import get_user_model
+from back.models import Magasin
 
 User = get_user_model()
     
@@ -225,8 +226,10 @@ class LoginSerializer(serializers.Serializer) :
 
         return value 
 
-class ShopSerializer(serializers.Serializer) : 
-    name = serializers.CharField()
+class ShopSerializer(serializers.ModelSerializer) : 
+    class Meta:
+        model = Magasin
+        fields = ['name']
     # Échappe tous les caractès html
     def clean_input(self, value) : 
         return html.escape(value)
@@ -241,6 +244,9 @@ class ShopSerializer(serializers.Serializer) :
         #Vérifie si les caractères sont des caractères autorisé
         if not cleaned_value.isalnum() : 
             raise serializers.ValidationError("Données incorrect. Seules les lettres et les chiffres sont autorisés.")
+        
+        return cleaned_value
+    
         
 
         

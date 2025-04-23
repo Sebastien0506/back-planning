@@ -9,10 +9,11 @@ class User(AbstractUser) :
     username = models.CharField(max_length=50, unique=False)
     email = models.EmailField(unique=True)
     ROLE_CHOICES = (
+        ('superadmin', 'Super Administrateur'),
         ('admin', 'Administrateur'),
         ('employe', 'Employe')
     )
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    role = models.CharField(max_length=15, choices=ROLE_CHOICES)
     admin = models.ForeignKey(
         'self',
         on_delete=models.CASCADE,
@@ -25,7 +26,7 @@ class User(AbstractUser) :
 
 class Magasin(models.Model) : 
     name = models.CharField(max_length=50, unique=True)
-    user = models.ManyToManyField(User)
+    created_by = models.ManyToManyField(User)
 
 
 
