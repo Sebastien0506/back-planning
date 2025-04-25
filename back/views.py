@@ -1,7 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from back.serializer import UserSerializer, LoginSerializer, ShopSerializer
+from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer
 from django.contrib.auth.hashers import make_password, check_password
 from back.models import User, Magasin
 from django.middleware.csrf import get_token
@@ -213,6 +213,42 @@ class ShopView(APIView) :
             return Response({"error" : "Magasin introuvable."}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e : 
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class ContratView(APIView) : 
+    def post(self, request) :
+        #On vérifie si la requete à bien la méthode post
+        if request.method != "POST" :
+            return Response({"error" : "Uniquement la méthode 'POST' est accepter."}, 
+                            status=status.HTTP_405_METHOD_NOT_ALLOWED
+                            )
+        try :
+            #On vérifie si l'utilisateur à bien le role superadmin
+            if request.user.role != "superadmin" : 
+                return Response({"error" : "Vous n'vaez pas la permission d'ajouter des contrat."},
+                                status=status.HTTP_403_FORBIDDEN
+                                )
+            #On vérifie que la requête contient bien des données.
+            if not request.data : 
+                return Response({"error" : "Les données sont manquante."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            #On initialise les données pour le serializer
+            serializer  = ContratSerializer(data=request.data)
+            
+            #On vérifie si le serializer est valide 
+            if not serializer.is_valid() :
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            #On sauvegarde les données
+            contrat = serializer.save()
+            contrat.save()
+            #On retourne un réponse
+            return Response({
+                "message" : "Contrat crée avec succès.",
+                "contrat_id" : contrat.id
+            }, status=status.HTTP_201_CREATED)
+        #On gère les exceptions
+        except Exception as e :
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
     
 
 

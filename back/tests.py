@@ -1,6 +1,6 @@
 from django.test import TestCase
 from django.contrib.auth.hashers import identify_hasher
-from back.serializer import UserSerializer, ShopSerializer
+from back.serializer import UserSerializer, ShopSerializer, ContratSerializer
 # from back.utils import generate_jwt, decoded_jwt
 
 #TEST VALIDE
@@ -100,41 +100,61 @@ from back.serializer import UserSerializer, ShopSerializer
 #             print("Username après nettoyage :" , validated_data["username"])
 #             print("Lastname après nettoyage :", validated_data["lastname"])
 
-class ShopSerializeurTest(TestCase) : 
-    
-
-    def test_valid_name(self):
-        """Test avec des données valides"""
-        data = {
-            "name" : "Boutique1"
-        }
+#TEST VALIDE
+# class ShopSerializeurTest(TestCase) : 
+#     def test_valid_name(self):
+#         """Test avec des données valides"""
+#         data = {
+#             "name" : "Boutique1"
+#         }
         
-        serializer = ShopSerializer(data=data)
+#         serializer = ShopSerializer(data=data)
 
-        # Vérifier que le sérialiseur est valide
+#         # Vérifier que le sérialiseur est valide
+#         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+#     def test_special_characters(self) : 
+#         data = {
+#             "name" : "Boutique@1"
+#         }
+#         serializer = ShopSerializer(data=data)
+#         self.assertFalse(serializer.is_valid(), serializer.errors)
+
+#     def test_input_empty(self) : 
+#         data = {
+#             "name" : ""
+#         }
+#         serializer = ShopSerializer(data=data)
+#         self.assertFalse(serializer.is_valid(), serializer.errors)
+
+class ContratSeriazerTest(TestCase) :
+    def test_valide_name(self) : 
+        data = {
+            "name" : "cdi"
+        }
+        serializer = ContratSerializer(data=data)
         self.assertTrue(serializer.is_valid(), serializer.errors)
-    def test_(self) : 
+    
+    def test_invalide_name(self) : 
         data = {
-            "name" : "Boutique@34"
+            "name" : "cdi1"
         }
-        serializer = ShopSerializer(data=data)
+        serializer = ContratSerializer(data=data)
         self.assertFalse(serializer.is_valid(), serializer.errors)
 
-    def test_special_characters(self) : 
+    def test_null_name(self) :
         data = {
-            "name" : "Boutique@1"
+            "name" : None
         }
-        serializer = ShopSerializer(data=data)
+        serializer = ContratSerializer(data=data)
         self.assertFalse(serializer.is_valid(), serializer.errors)
 
-    def test_input_empty(self) : 
+    def test_special_characteres(self) :
         data = {
-            "name" : ""
+            "name" : "@cdi"
         }
-        serializer = ShopSerializer(data=data)
+        serializer = ContratSerializer(data=data)
         self.assertFalse(serializer.is_valid(), serializer.errors)
 
-
-        
 
         

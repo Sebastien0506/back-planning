@@ -6,7 +6,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView
 )
-from back.views import add_admin, login, get_user_role, LogoutView, ShopView# ✅ Import de la vue
+from back.views import add_admin, login, get_user_role, LogoutView, ShopView, ContratView# ✅ Import de la vue
 
 # Serializers define the API representation.
 User = get_user_model()
@@ -37,6 +37,6 @@ urlpatterns = [
     path('api/get_user_role/', get_user_role, name='get_user_role'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('api/shop/',ShopView.as_view(), name='add_shop'),
-    path('api/shops/<int:shop_id>/', ShopView.as_view(), name='delete_shop')
-    
+    path('api/shops/<int:shop_id>/', ShopView.as_view(), name='delete_shop'),
+    path('api/contrats/', ContratView.as_view(), name="add_contrat")
 ]

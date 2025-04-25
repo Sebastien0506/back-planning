@@ -21,12 +21,24 @@ class User(AbstractUser) :
         blank=True,
         related_name='employes'
     )
+    contrat = models.ForeignKey(
+        'Contrat',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='users'
+    )
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
 
 class Magasin(models.Model) : 
     name = models.CharField(max_length=50, unique=True)
     created_by = models.ManyToManyField(User)
+
+class Contrat(models.Model) : 
+    name = models.CharField(max_length=10, unique=True)
+    
+
 
 
 

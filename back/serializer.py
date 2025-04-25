@@ -4,7 +4,7 @@ from django.contrib.auth.hashers import make_password, check_password
 import html
 from datetime import time, datetime
 from django.contrib.auth import get_user_model
-from back.models import Magasin
+from back.models import Magasin, Contrat
 
 User = get_user_model()
     
@@ -247,7 +247,32 @@ class ShopSerializer(serializers.ModelSerializer) :
         
         return cleaned_value
     
+class ContratSerializer(serializers.ModelSerializer) : 
+    class Meta : 
+        model = Contrat  
+        fields = ["name"]
+
+    def clean_input(self, value) : 
+        return html.escape(value)
+    
+    def validate_name(self, value) : 
+        cleaned_value = self.clean_input(value)
+        cleaned_value = cleaned_value.strip()
+
+        if not isinstance(cleaned_value, str) : 
+            raise serializers.ValidationError("Lee données ne sont pas une chaine de caractère.")
         
+        if len(cleaned_value) < 1 :
+            raise serializers.ValidationError("Les données doivent contenir au moin un caractère.")
+        
+        if not cleaned_value.isalpha() : 
+            raise serializers.ValidationError("Les données ne doivent contenir que des lettres.")
+        
+        return cleaned_value
+    
+        
+
+         
 
         
 
