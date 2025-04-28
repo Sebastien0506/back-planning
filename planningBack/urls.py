@@ -38,5 +38,5 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('api/shop/',ShopView.as_view(), name='add_shop'),
     path('api/shops/<int:shop_id>/', ShopView.as_view(), name='delete_shop'),
-    path('api/contrats/', ContratView.as_view(), name="add_contrat")
+    path('api/contrat/', ContratView.as_view(), name="add_contrat")
 ]

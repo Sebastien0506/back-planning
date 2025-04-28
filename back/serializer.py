@@ -1,87 +1,11 @@
 from rest_framework import serializers
-# from .models import User, Employes, Travail
 from django.contrib.auth.hashers import make_password, check_password
 import html
 from datetime import time, datetime
 from django.contrib.auth import get_user_model
-from back.models import Magasin, Contrat
+from back.models import Magasin, Contrat, WorkingDay
 
 User = get_user_model()
-    
-# class TravailSerializer(serializers.ModelSerializer) : 
-#     class Meta :
-#         model = Travail
-#         fields = ['start_job', 'end_job', 'work_day']
-
-#     def clean_input(self, value) : 
-#             ##
-#             # On échappe les caractères spéciaux##
-#         if isinstance(value, list) :
-#             return [html.escape(str(item)) for item in value]
-#         elif isinstance(value, str) :
-#             return html.escape(value)
-#         return value
-        
-#     def valide_start_job(self, value) :
-#         clean_value = self.clean_input(value)
-            
-#         if isinstance(clean_value, str) :
-#             try :
-#                 clean_value = datetime.strptime(clean_value, "%H:%M").time()
-#             except ValueError : 
-#                 raise serializers.ValidationError("L'heure de début doit être dans le format HH:MM (ex: 12:00)")
-#         elif not isinstance(clean_value, time) :
-#             raise serializers.ValidationError("L'heure de début doit être un objet de type time.")
-#         return clean_value
-        
-        
-#     def valide_end_job(self, value) : 
-#         cleaned_value = self.clean_input(value)
-#         start_job = self.valide_start_job(cleaned_value)
-
-#         if isinstance(cleaned_value, str) : 
-#             try : 
-#                 cleaned_value = datetime.strptime(cleaned_value, "%H:%M").time()
-#             except ValueError : 
-#                 raise serializers.ValidationError("L'heure de fin doit être dans le format HH:MM (ex: 21:00)")
-#         elif not isinstance(cleaned_value, time) :
-#             raise serializers.ValidationError("L'heure de fin doit être un objet de type time.")
-            
-#         if cleaned_value < start_job : 
-#             raise serializers.ValidationError("L'heure de fin ne doit pas être avant l'heure de début")
-#         return cleaned_value
-
-#     def validate_work_day(self, value) :
-#         cleaned_value = self.clean_input(value)
-
-#         if not isinstance(cleaned_value, list) : 
-#             raise serializers.ValidationError("Les données doivent être sous forme de liste.")
-
-#         if cleaned_value is None :
-#             raise serializers.ValidationError("Au moin un jours de travail doit être renseigner.")
-         
-#         validated_day = []
-#         for day in cleaned_value :
-#             if not isinstance(day, str) or not day.isalpha() :
-#                 raise serializers.ValidationError(f"Le jour '{day}' contient de caractères non valides. Seules les lettres sont autorisées. ")
-#             validated_day.append(day)
-        
-#         return validated_day
-            
-    
-# class EmployeTravailSerializer(serializers.Serializer) : 
-#     employe = EmployesSerializer()
-#     travail = TravailSerializer()
-
-#     def create(self, validated_data) : 
-#         employe_data = validated_data.pop("employe")
-#         travail_data = validated_data.pop("travail")
-
-#         employe = Employes.objects.create(**employe_data)
-
-#         Travail.objects.create(employe=employe, **travail_data)
-
-#         return {"employe": employe, "travail" : travail_data}
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -163,7 +87,40 @@ class UserSerializer(serializers.ModelSerializer):
 
         user = User.objects.create_user(**validated_data)
         return user
+#Sérializer pour vérifier les jours de travail    
+class WorkingDaySerializer(serializers.ModelSerializer) : 
+    class Meta :
+        model = WorkingDay
+        fields = ["working_day", "start_job", "end_job"]
     
+    def validate_working_day(self, value) :
+        if not value : 
+            raise serializers.ValidationError("Le tableau ne doit pas être vide.")
+        cleaned_days = []
+
+        for day in value : 
+            escape_day = html.escape(day)
+
+            if not escape_day.isalpha():
+                raise serializers.ValidationError(f"Le jour '{escape_day}' doit contenir uniquement des lettres.")
+            cleaned_days.append(escape_day)
+        return cleaned_days
+    
+    def validate(self, data) : 
+        start_job = data.get('start_job')
+        end_job = data.get('end_job')
+
+        if not isinstance(start_job, time) or not isinstance(end_job, time) :
+            raise serializers.ValidationError("l'heure de début et l'heure de fin doivent être valides.")
+        
+        if start_job >= end_job :
+            raise serializers.ValidationError("L'heure de début doit être avant l'heure de fin.")
+        return data
+    
+
+    
+
+
 
 # #Sérializeur utilisé lors de la connexion.
 class LoginSerializer(serializers.Serializer) :
@@ -172,7 +129,7 @@ class LoginSerializer(serializers.Serializer) :
     password = serializers.CharField(write_only=True)
 
     #On échappe les caractères spéciaux.
-    def clean_input(selft, value) : 
+    def clean_input(self, value) : 
         #On échappe les caractères spéciaux.
         return html.escape(value)
     

@@ -3,6 +3,7 @@ from django.contrib.auth.hashers import make_password, check_password
 from django.core.exceptions import ValidationError
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth.models import AbstractUser
+import datetime
 
 
 class User(AbstractUser) : 
@@ -37,6 +38,13 @@ class Magasin(models.Model) :
 
 class Contrat(models.Model) : 
     name = models.CharField(max_length=10, unique=True)
+
+class WorkingDay(models.Model) : 
+    working_day = ArrayField(
+        models.CharField(max_length=10), size=7
+    )
+    start_job = models.TimeField(null=True, auto_now=False, auto_now_add=False)
+    end_job = models.TimeField(null=True, auto_now=False, auto_now_add=False)
     
 
 
