@@ -1,7 +1,7 @@
 import pytest
 from back.serializer import WorkingDaySerializer
 from datetime import time
-
+#Test pour vérifier le serializer
 @pytest.mark.django_db
 def test_working_day_serializer_valid():
     data = {
