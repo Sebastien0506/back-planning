@@ -38,6 +38,7 @@ urlpatterns = [
     path('logout/', LogoutView.as_view(), name='logout'),
     path('api/shop/',ShopView.as_view(), name='add_shop'),
     path('api/shops/<int:shop_id>/', ShopView.as_view(), name='delete_shop'),
+    path('api/shop_update/<int:shop_id>/', ShopView.as_view(), name='update_shop'),
     path('api/contrat/', ContratView.as_view(), name="add_contrat"),
     path('api/add_employer/<int:contrat_id>/<int:shop_id>/', EmployerView.as_view(), name="add_employer")
 ]

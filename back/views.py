@@ -201,6 +201,39 @@ class ShopView(APIView) :
         except Exception as e : 
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+    def put(self, request, shop_id) :
+        #On vérifie le role de l'utilisateur 
+        if request.user.role != "superadmin" : 
+            return Response({"error" : "Vous n'avez pas la permission de modifier un magasin."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try : 
+            #On initialise le serializer
+            serializer = ShopSerializer(data=request.data)
+
+            #On vérifie si le serializer est valide
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            #On récupère les données du serializer
+            data = serializer.validated_data
+            
+            try :
+                #On récupère le magasin à modifier
+                shop = Magasin.objects.get(id=shop_id)
+            except Exception as e :
+                return Response({"error" : str(e)}, status=status.HTTP_404_NOT_FOUND)
+            #On met à jour le nom
+            shop.shop_name = data["shop_name"]
+            shop.save()
+            return Response({"message" : "Le nom du magasin a bien été modifier."}, status=status.HTTP_200_OK)
+        except Exception as e : 
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+            
+
+    
     #Suppression d'un magasin
     def delete(self, request, shop_id) :
         if request.user.role != "superadmin" :
