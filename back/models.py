@@ -9,6 +9,7 @@ import datetime
 class User(AbstractUser) : 
     username = models.CharField(max_length=50, unique=False)
     email = models.EmailField(unique=True)
+    magasin = models.ManyToManyField('Magasin', related_name='employes', blank=True)
     ROLE_CHOICES = (
         ('superadmin', 'Super Administrateur'),
         ('admin', 'Administrateur'),
@@ -33,13 +34,14 @@ class User(AbstractUser) :
     REQUIRED_FIELDS = []
 
 class Magasin(models.Model) : 
-    name = models.CharField(max_length=50, unique=True)
-    created_by = models.ManyToManyField(User)
+    shop_name = models.CharField(max_length=50, unique=True)
+    created_by = models.ManyToManyField(User, related_name='magasins_crees')
 
 class Contrat(models.Model) : 
-    name = models.CharField(max_length=10, unique=True)
+    contrat_name = models.CharField(max_length=10, unique=True)
 
 class WorkingDay(models.Model) : 
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="working_day")
     working_day = ArrayField(
         models.CharField(max_length=10), size=7
     )

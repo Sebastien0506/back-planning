@@ -120,72 +120,6 @@ class WorkingDaySerializer(serializers.ModelSerializer) :
             raise serializers.ValidationError("L'heure de début doit être avant l'heure de fin.")
         return data
     
-
-class AddEmployerSerializer(serializers.ModelSerializer) :
-    working_day = WorkingDaySerializer()
-
-    class Meta : 
-        model = User
-        fields = ["username", "last_name", "email", "working_day"]
-    #On nettoie les champs
-    def clean_input(self, value) : 
-        return html.escape(value)
-    
-    #On vérifie le champ username
-    def validate_username(self, value) :
-        cleaned_value = self.clean_input(value).strip()
-
-        if len(cleaned_value) < 1 :
-            raise serializers.ValidationError("Le champ 'username' doit contenir au moin une lettre.")
-        
-        if not all(char.isalpha() or char == "-" for char in cleaned_value):
-            raise serializers.ValidationError("Le nom d'utilisateur ne doit contenir que des lettres.")
-        return cleaned_value
-    
-    #On vérifie le champ last_name
-    def validate_last_name(self, value):
-        cleaned_value = self.clean_input(value).strip()
-
-        #On vérifie la longueur du champ
-        if len(cleaned_value) < 1 :
-            raise serializers.ValidationError("Le champ 'last_name' doit contenir au moin une lettre.")
-        
-        #On vérifie que cleaned_value ne contient que des lettres.
-        if not all(char.isalpha() or char == "-" for char in cleaned_value):
-            raise serializers.ValidationError("Le nom d'utilisateur ne doit contenir que des lettres.")
-        return cleaned_value
-    
-    #On vérifie l'email
-    def validate_email(self, value) :
-        #On nettoie la valeur et on supprime les espaces au début et à la fin du champ
-        cleaned_value = self.clean_input(value).strip()
-        domain_accepted = ["gmail.com", "yahoo.com", "orange.fr"]
-        #on vérifie la longueur du champ
-        if len(cleaned_value) < 1 :
-            raise serializers.ValidationError("Le champ 'email' ne doit pas être vide.")
-
-        #On vérifie si le champ contient un @
-        if cleaned_value.count("@") != 1 :
-            raise serializers.ValidationError("L'email doit contenir un seul '@'.")
-        #On récupère le nom de domaine
-        local_part, domaine_part = cleaned_value.split("@")
-
-        #On vérifie si le nom de domain est valide
-        if domaine_part not in domain_accepted : 
-            raise serializers.ValidationError(f"Le nom de domain {domaine_part}, n'est pas autorisé.")
-
-        #On vérifie si tous les caractères sont valide
-        if not all(char.isalnum() or char in ["-", "_", "."] for char in local_part) : 
-            raise serializers.ValidationError("La partie avant le '@' est invalide.")
-        return cleaned_value
-               
-
-        
-
-              
-
-
-
 # #Sérializeur utilisé lors de la connexion.
 class LoginSerializer(serializers.Serializer) :
     #On récupère l'email et le mot de passe. 
@@ -250,7 +184,7 @@ class LoginSerializer(serializers.Serializer) :
 class ShopSerializer(serializers.ModelSerializer) : 
     class Meta:
         model = Magasin
-        fields = ['name']
+        fields = ['shop_name']
     # Échappe tous les caractès html
     def clean_input(self, value) : 
         return html.escape(value)
@@ -271,7 +205,7 @@ class ShopSerializer(serializers.ModelSerializer) :
 class ContratSerializer(serializers.ModelSerializer) : 
     class Meta : 
         model = Contrat  
-        fields = ["name"]
+        fields = ["contrat_name"]
 
     def clean_input(self, value) : 
         return html.escape(value)
@@ -292,9 +226,70 @@ class ContratSerializer(serializers.ModelSerializer) :
         return cleaned_value
     
         
+class AddEmployerSerializer(serializers.ModelSerializer) :
+    working_day = WorkingDaySerializer()
+    magasin = serializers.PrimaryKeyRelatedField(queryset=Magasin.objects.all(), many=True)
+    contrat = serializers.PrimaryKeyRelatedField(queryset=Contrat.objects.all())
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
+    class Meta : 
+        model = User
+        fields = ["username", "last_name", "email","password", "working_day", "contrat", "magasin"]
+    #On nettoie les champs
+    def clean_input(self, value) : 
+        return html.escape(value)
+    
+    #On vérifie le champ username
+    def validate_username(self, value) :
+        cleaned_value = self.clean_input(value).strip()
+
+        if len(cleaned_value) < 1 :
+            raise serializers.ValidationError("Le champ 'username' doit contenir au moin une lettre.")
+        
+        if not all(char.isalpha() or char == "-" for char in cleaned_value):
+            raise serializers.ValidationError("Le nom d'utilisateur ne doit contenir que des lettres.")
+        return cleaned_value
+    
+    #On vérifie le champ last_name
+    def validate_last_name(self, value):
+        cleaned_value = self.clean_input(value).strip()
+
+        #On vérifie la longueur du champ
+        if len(cleaned_value) < 1 :
+            raise serializers.ValidationError("Le champ 'last_name' doit contenir au moin une lettre.")
+        
+        #On vérifie que cleaned_value ne contient que des lettres.
+        if not all(char.isalpha() or char == "-" for char in cleaned_value):
+            raise serializers.ValidationError("Le nom d'utilisateur ne doit contenir que des lettres.")
+        return cleaned_value
+    
+    #On vérifie l'email
+    def validate_email(self, value) :
+        #On nettoie la valeur et on supprime les espaces au début et à la fin du champ
+        cleaned_value = self.clean_input(value).strip()
+        domain_accepted = ["gmail.com", "yahoo.com", "orange.fr"]
+        #on vérifie la longueur du champ
+        if len(cleaned_value) < 1 :
+            raise serializers.ValidationError("Le champ 'email' ne doit pas être vide.")
+
+        #On vérifie si le champ contient un @
+        if cleaned_value.count("@") != 1 :
+            raise serializers.ValidationError("L'email doit contenir un seul '@'.")
+        #On récupère le nom de domaine
+        local_part, domaine_part = cleaned_value.split("@")
+
+        #On vérifie si le nom de domain est valide
+        if domaine_part not in domain_accepted : 
+            raise serializers.ValidationError(f"Le nom de domain {domaine_part}, n'est pas autorisé.")
+
+        #On vérifie si tous les caractères sont valide
+        if not all(char.isalnum() or char in ["-", "_", "."] for char in local_part) : 
+            raise serializers.ValidationError("La partie avant le '@' est invalide.")
+        return cleaned_value
+
+    
          
-
+        
         
 
     

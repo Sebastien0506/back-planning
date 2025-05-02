@@ -1,9 +1,9 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer
+from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer
 from django.contrib.auth.hashers import make_password, check_password
-from back.models import User, Magasin
+from back.models import User, Magasin, Contrat, WorkingDay
 from django.middleware.csrf import get_token
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -215,6 +215,7 @@ class ShopView(APIView) :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ContratView(APIView) : 
+    permission_classes = [IsAuthenticated]
     def post(self, request) :
         #On vérifie si la requete à bien la méthode post
         if request.method != "POST" :
@@ -224,7 +225,7 @@ class ContratView(APIView) :
         try :
             #On vérifie si l'utilisateur à bien le role superadmin
             if request.user.role != "superadmin" : 
-                return Response({"error" : "Vous n'vaez pas la permission d'ajouter des contrat."},
+                return Response({"error" : "Vous n'avez pas la permission d'ajouter des contrat."},
                                 status=status.HTTP_403_FORBIDDEN
                                 )
             #On vérifie que la requête contient bien des données.
@@ -248,6 +249,77 @@ class ContratView(APIView) :
         #On gère les exceptions
         except Exception as e :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class EmployerView(APIView) : 
+    #On définit les permissions
+    permission_classes = [IsAuthenticated]
+
+    #On créer le code pour ajouter l'employer
+    def post(self, request, contrat_id, shop_id) :
+        
+        try : 
+            #On vérifie si l'utilisateur à la permission d'ajouter des employer
+            if request.user.role != "superadmin" :
+                return Response({"error" : "Vous n'avez pas la permission d'ajouter des employer."}, status=status.HTTP_401_UNAUTHORIZED)
+            
+            #On initialise le serializer
+            serializer = AddEmployerSerializer(data=request.data)
+
+            #On vérifie si le serializer est valide
+            if not serializer.is_valid() :
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            #On vérifie que le contrat existe
+            try : 
+                contrat = Contrat.objects.get(id=contrat_id)
+            except Contrat.DoesNotExist:
+                return Response({"error" : "Aucun contrat n'existe avec cette identifiant."}, status=status.HTTP_404_NOT_FOUND)
+            
+            #On vérifie que la magasin existe
+            try : 
+                shop = Magasin.objects.get(id=shop_id) 
+            except Magasin.DoesNotExist :
+                return Response({"error" : "Aucun magasin n'existe avec cette identifiant."}, status=status.HTTP_404_NOT_FOUND)
+            #On récupère les données du serializer
+            data = serializer.validated_data
+            #On créé un nouvel utilisateur en lui donnant le role employer
+            new_user = User.objects.create_user(
+                username=data["username"],
+                email=data["email"],
+                last_name=data["last_name"],
+                password="MotDePasseParDefaut123",
+                role="employe",
+                contrat=contrat,
+                admin=request.user
+            )
+            #On lui assigne les magasins
+            new_user.magasin.add(shop)
+            #On récupère les donnée dans workingday
+            working = data["working_day"]
+            
+            #On créer un nouvel object working_day
+            WorkingDay.objects.create(
+                user=new_user,
+                working_day=working["working_day"],
+                start_job=working["start_job"],
+                end_job=working["end_job"]
+            )
+            #On retourne un message de succès
+            return Response({"message" : "Employé créé avec succès."}, status=status.HTTP_201_CREATED)
+        except Exception as e :
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+
+             
+
+    
+            
+            
+                
+
+    
+
+
         
     
 
