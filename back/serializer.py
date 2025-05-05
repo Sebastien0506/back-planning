@@ -287,7 +287,13 @@ class AddEmployerSerializer(serializers.ModelSerializer) :
             raise serializers.ValidationError("La partie avant le '@' est invalide.")
         return cleaned_value
 
-    
+#POUR SERIALIZER LES DONNÉES
+
+class ListContratSerializer(serializers.ModelSerializer) :
+    class Meta : 
+        model = Contrat
+        fields = '__all__'
+         
          
         
         

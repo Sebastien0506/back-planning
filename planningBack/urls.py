@@ -40,5 +40,7 @@ urlpatterns = [
     path('api/shops/<int:shop_id>/', ShopView.as_view(), name='delete_shop'),
     path('api/shop_update/<int:shop_id>/', ShopView.as_view(), name='update_shop'),
     path('api/contrat/', ContratView.as_view(), name="add_contrat"),
+    path('api/view_contrat/', ContratView.as_view(), name="view_contrat"),
+    path('api/delete_contrat/<int:contrat_id>/', ContratView.as_view(), name="delete_contrat"),
     path('api/add_employer/<int:contrat_id>/<int:shop_id>/', EmployerView.as_view(), name="add_employer")
 ]

@@ -1,7 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer
+from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer, ListContratSerializer
 from django.contrib.auth.hashers import make_password, check_password
 from back.models import User, Magasin, Contrat, WorkingDay
 from django.middleware.csrf import get_token
@@ -200,7 +200,7 @@ class ShopView(APIView) :
             }, status=status.HTTP_201_CREATED)
         except Exception as e : 
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
+    #Modification d'un magasin
     def put(self, request, shop_id) :
         #On vérifie le role de l'utilisateur 
         if request.user.role != "superadmin" : 
@@ -229,11 +229,6 @@ class ShopView(APIView) :
         except Exception as e : 
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
-
-            
-
-    
     #Suppression d'un magasin
     def delete(self, request, shop_id) :
         if request.user.role != "superadmin" :
@@ -282,6 +277,35 @@ class ContratView(APIView) :
         #On gère les exceptions
         except Exception as e :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    def delete(self, request, contrat_id) :
+        #On vérifie le role de l'utilisateur qui fait la requête
+        if request.user.role != "superadmin" :
+            return Response({"error" : "Vous n'avez pas la permission de supprimer un contrat."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try :
+            #On récupère le contrat
+            contrat = Contrat.objects.get(id=contrat_id)
+            contrat.delete()
+            return Response({"message" : "Le contrat à bien été supprimer avec succès."}, status=status.HTTP_200_OK)
+        except Contrat.DoesNotExist :
+            #Si le contrat n'existe pas on renvoi un message d'erreur
+            return Response({"error" : "Aucun contrat avec cette id n'existe."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e :
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def get(self, request) : 
+        if request.user.role != "superadmin" : 
+            return Response({"error" : "Vous n'avez pas la permission de voir les contrats."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try : 
+            contrats = Contrat.objects.all()
+            serializer = ListContratSerializer(contrats, many=True)
+            return Response(serializer.data)
+        except Contrat.DoesNotExist : 
+            return Response({"error" : "Aucun contrat n'existe."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e :
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
 class EmployerView(APIView) : 
     #On définit les permissions
