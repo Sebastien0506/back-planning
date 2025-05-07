@@ -3,7 +3,7 @@ from django.contrib.auth.hashers import make_password, check_password
 import html
 from datetime import time, datetime
 from django.contrib.auth import get_user_model
-from back.models import Magasin, Contrat, WorkingDay
+from back.models import Magasin, Contrat, WorkingDay, Vacation
 
 User = get_user_model()
 
@@ -227,7 +227,7 @@ class ContratSerializer(serializers.ModelSerializer) :
     
         
 class AddEmployerSerializer(serializers.ModelSerializer) :
-    working_day = WorkingDaySerializer()
+    working_day = WorkingDaySerializer(many=True, read_only=True)
     magasin = serializers.PrimaryKeyRelatedField(queryset=Magasin.objects.all(), many=True)
     contrat = serializers.PrimaryKeyRelatedField(queryset=Contrat.objects.all())
     password = serializers.CharField(write_only=True, required=False, allow_blank=True)
@@ -286,13 +286,77 @@ class AddEmployerSerializer(serializers.ModelSerializer) :
         if not all(char.isalnum() or char in ["-", "_", "."] for char in local_part) : 
             raise serializers.ValidationError("La partie avant le '@' est invalide.")
         return cleaned_value
+    
+    def update(self, instance, validated_data):
+        working_day_data = validated_data.pop('working_day', None)
+        magasin_data = validated_data.pop('magasin', None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if magasin_data is not None:
+            instance.magasin.set(magasin_data)
+
+        if working_day_data:
+            # Supprimer l'ancien
+            instance.working_day.all().delete()
+            # Créer le nouveau
+            WorkingDay.objects.create(user=instance, **working_day_data)
+
+        return instance
 
 #POUR SERIALIZER LES DONNÉES
 
 class ListContratSerializer(serializers.ModelSerializer) :
+    #Serializer pour récuperer tous les contrats
     class Meta : 
         model = Contrat
         fields = '__all__'
+
+class ListEmployerSerializer(serializers.ModelSerializer) : 
+    #Serializer pour récuperer tous les employes lier à un superadmin
+    class Meta :
+        model = User
+        fields = ["username", "last_name"]
+class ListShopSerializer(serializers.ModelSerializer) :
+    class Meta : 
+        model = Magasin
+        fields = ["shop_name"]
+
+class ListContratSerializer(serializers.ModelSerializer) :
+    class Meta :
+        model = Contrat
+        fields = ["contrat_name"]
+
+class DetailEmployerSerializer(serializers.ModelSerializer) : 
+
+    class Meta :
+        model = User
+        fields = ["username", "last_name", "email"]
+
+class CheckVacationSerializer(serializers.ModelSerializer) : 
+    class Meta :
+        model = Vacation
+        fields = ["start_day", "end_day"]
+
+    def validate(self, data) :
+        #On récupère le jour de debut
+        start_day = data.get("start_day")
+        #On récupère le jour de fi
+        end_day = data.get("end_day")
+
+        if not start_day :
+            raise serializers.ValidationError("La date de début ne doit pas être vide.")
+        if not end_day :
+            raise serializers.ValidationError("La date de fin ne doit pas être vide.")
+        
+        if  start_day > end_day :
+            raise serializers.ValidationError("La date de début doit être avant la date de fin.")
+        
+        return data
+        
+
          
          
         

@@ -10,6 +10,7 @@ class User(AbstractUser) :
     username = models.CharField(max_length=50, unique=False)
     email = models.EmailField(unique=True)
     magasin = models.ManyToManyField('Magasin', related_name='employes', blank=True)
+    
     ROLE_CHOICES = (
         ('superadmin', 'Super Administrateur'),
         ('admin', 'Administrateur'),
@@ -47,6 +48,17 @@ class WorkingDay(models.Model) :
     )
     start_job = models.TimeField(null=True, auto_now=False, auto_now_add=False)
     end_job = models.TimeField(null=True, auto_now=False, auto_now_add=False)
+
+class Vacation(models.Model) :
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="vacations")
+    start_day = models.DateField()
+    end_day = models.DateField()
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     
 
 

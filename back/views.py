@@ -1,9 +1,9 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer, ListContratSerializer
+from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer, ListContratSerializer, ListEmployerSerializer, DetailEmployerSerializer, ListShopSerializer, CheckVacationSerializer
 from django.contrib.auth.hashers import make_password, check_password
-from back.models import User, Magasin, Contrat, WorkingDay
+from back.models import User, Magasin, Contrat, WorkingDay, Vacation
 from django.middleware.csrf import get_token
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -307,7 +307,7 @@ class ContratView(APIView) :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
-class EmployerView(APIView) : 
+class EmployerListView(APIView) : 
     #On définit les permissions
     permission_classes = [IsAuthenticated]
 
@@ -344,7 +344,7 @@ class EmployerView(APIView) :
                 username=data["username"],
                 email=data["email"],
                 last_name=data["last_name"],
-                password="MotDePasseParDefaut123",
+                password="Password@1",
                 role="employe",
                 contrat=contrat,
                 admin=request.user
@@ -365,6 +365,124 @@ class EmployerView(APIView) :
             return Response({"message" : "Employé créé avec succès."}, status=status.HTTP_201_CREATED)
         except Exception as e :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    #On créé le code pour afficher les employes
+    def get(self, request) :
+        #On vérifie si le role de l'utilisateur est superadmin
+        if request.user.role != "superadmin" :
+            return Response({"error" : "Vous n'avez pas la permission de voir tous les employes."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try : 
+            #On récupère les employes lier à l'admin
+            employes = User.objects.filter(admin=request.user)
+            serializer = ListEmployerSerializer(employes, many=True)
+            return Response(serializer.data)
+        except Exception as e :
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    
+
+
+    def delete(self, request, employer_id) :
+        #On vérifie si l'utilisateur à le rôle admin
+        if request.user.role != "superadmin" : 
+            return Response({"error" : "Vous n'avez pas la permission de supprimer des employes."}, status=status.HTTP_401_UNAUTHORIZED)
+        
+        try :
+            #On récupère l'employer par sont id
+            employer = User.objects.get(id=employer_id)
+            employer.delete() #On le supprime et on envoi un message de succèss
+            return Response({"message" : "L'employe à bien été supprimer avec succès."}, status=status.HTTP_200_OK)
+        except User.DoesNotExist : 
+            return Response({"error" : "Aucun employer n'existe avec cette id."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+         
+
+class EmployerDetailAPIView(APIView) :
+    def get(self, request, pk) :
+        if request.user.role != "superadmin" : 
+            return Response({"error" : "Vous n'avez pas la permission de modifier un employer."}, status=status.HTTP_401_UNAUTHORIZED)
+        try :
+            #On récupère l'employer grace à sont id 
+            employe = User.objects.get(pk=pk, admin=request.user)
+            serializer = DetailEmployerSerializer(employe)
+            
+            #On récupère le magasin lier à l'employer
+            magasins = Magasin.objects.filter(employes=employe)
+            #On récupère le contrat lier à l'employer
+            contrat = employe.contrat
+
+            magasins_data = ListShopSerializer(magasins, many=True).data
+            contrats_data = ListContratSerializer(contrat).data if contrat else None
+            
+            data = serializer.data
+            data["magasins"] = magasins_data
+            data["contrats"] = contrats_data
+            return Response(data)
+        except User.DoesNotExist : 
+            return Response({"error" : "Employé introuvable."}, status=status.HTTP_404_NOT_FOUND)
+    
+    def patch(self, request, employer_id):
+        #On vérifie si l'utilisateur à le rôle superadmin
+        if request.user.role != "superadmin":
+         return Response({"error": "Vous n'avez pas la permission de modifier un employé."},
+                            status=status.HTTP_401_UNAUTHORIZED)
+    
+        try:
+            #On récupère l'employer
+            employe = User.objects.get(id=employer_id, admin=request.user)
+        except User.DoesNotExist:
+            return Response({"error": "Employé introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        #On initialize le serializer avec les données
+        serializer = AddEmployerSerializer(employe, data=request.data, partial=True)
+        #On vérifie si le serializer est valide 
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        #On sauvegarde les données 
+        serializer.save()
+
+        # Accès aux données liées (facultatif ici)
+        magasins = employe.magasin.all()
+        contrat = employe.contrat
+
+        return Response({
+            "employe": serializer.data,
+            "magasins": ShopSerializer(magasins, many=True).data,
+            "contrat": ContratSerializer(contrat).data if contrat else None
+        })
+class VacationAPIVew(APIView) :
+    def post(self, request, employer_id) : 
+        #On vérifie si les données sont présent dans la requête
+        if not request.data : 
+            return Response({"error" : "Aucune données n'a été fournis."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try :
+            #On vérifie si l'utilisateur existe
+            user = User.objects.get(id=employer_id)
+        except User.DoesNotExist :
+            return Response({"error" : "Utilisateur introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        #On vérifie si le serializer est valide
+        serializer = CheckVacationSerializer(data=request.data)
+        
+        #Si le serializer est valide on ajoute le status  "pending"
+        if serializer.is_valid() :
+            #On créer un nouvel objet Vacation
+            Vacation.objects.create(
+                user=user,
+                start_day = serializer.validated_data['start_day'],
+                end_day = serializer.validated_data['end_day'],
+                status="pending"
+            )
+            return Response({"message" : "Vacance en attente de validation."}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+
+        
+
+
+
             
 
              
