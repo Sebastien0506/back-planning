@@ -42,9 +42,9 @@ class Contrat(models.Model) :
     contrat_name = models.CharField(max_length=10, unique=True)
 
 class WorkingDay(models.Model) : 
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="working_day")
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="working_day")
     working_day = ArrayField(
-        models.CharField(max_length=10), size=7
+        models.CharField(max_length=10), size=7, null=True
     )
     start_job = models.TimeField(null=True, auto_now=False, auto_now_add=False)
     end_job = models.TimeField(null=True, auto_now=False, auto_now_add=False)

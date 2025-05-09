@@ -90,14 +90,17 @@ class UserSerializer(serializers.ModelSerializer):
 
 #Sérializer pour vérifier les jours de travail    
 class WorkingDaySerializer(serializers.ModelSerializer) : 
+    working_day = serializers.ListField(
+        child=serializers.CharField(),
+        allow_empty=True,
+        required=False
+    )
     class Meta :
         model = WorkingDay
         fields = ["working_day", "start_job", "end_job"]
     #Validation des jours de travail
     def validate_working_day(self, value) :
-        #On vérifie si le tableau est vide
-        if not value : 
-            raise serializers.ValidationError("Le tableau ne doit pas être vide.")
+        
         cleaned_days = []
         #Pour chaque jour on échappe tous les caractères
         for day in value : 
@@ -227,7 +230,7 @@ class ContratSerializer(serializers.ModelSerializer) :
     
         
 class AddEmployerSerializer(serializers.ModelSerializer) :
-    working_day = WorkingDaySerializer(many=True, read_only=True)
+    working_day = WorkingDaySerializer(required=False)
     magasin = serializers.PrimaryKeyRelatedField(queryset=Magasin.objects.all(), many=True)
     contrat = serializers.PrimaryKeyRelatedField(queryset=Contrat.objects.all())
     password = serializers.CharField(write_only=True, required=False, allow_blank=True)
@@ -355,6 +358,13 @@ class CheckVacationSerializer(serializers.ModelSerializer) :
             raise serializers.ValidationError("La date de début doit être avant la date de fin.")
         
         return data
+class VacationSerializer(serializers.ModelSerializer) :
+    username = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta : 
+        model = Vacation
+        fields = ['username', "start_day", "end_day", "status"]
+
         
 
          

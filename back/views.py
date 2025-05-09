@@ -1,7 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer, ListContratSerializer, ListEmployerSerializer, DetailEmployerSerializer, ListShopSerializer, CheckVacationSerializer
+from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer, ListContratSerializer, ListEmployerSerializer, DetailEmployerSerializer, ListShopSerializer, CheckVacationSerializer, VacationSerializer
 from django.contrib.auth.hashers import make_password, check_password
 from back.models import User, Magasin, Contrat, WorkingDay, Vacation
 from django.middleware.csrf import get_token
@@ -452,6 +452,7 @@ class EmployerDetailAPIView(APIView) :
             "contrat": ContratSerializer(contrat).data if contrat else None
         })
 class VacationAPIVew(APIView) :
+    #On fait la demande de vacance
     def post(self, request, employer_id) : 
         #On vérifie si les données sont présent dans la requête
         if not request.data : 
@@ -476,6 +477,48 @@ class VacationAPIVew(APIView) :
             )
             return Response({"message" : "Vacance en attente de validation."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    #On récupère tout les demandes de vacances
+    def get(self,request) : 
+        #On vérifie le role de l'utilisateur 
+        if request.user.role != "superadmin" :
+            return Response({"error" : "Vous n'avez pas la permission de voir les demande de vacances."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try : 
+            vacance = Vacation.objects.select_related('user').all()
+            serializer = VacationSerializer(vacance, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e :
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def patch(self, request, employer_id, vacation_id):
+        if request.user.role != "superadmin":
+            return Response({"error": "Vous n'avez pas la permission d'accepter ou de refuser les demandes de vacances."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        data = request.data
+        if data.get("status") not in ["accepted", "rejected"]:
+            return Response({"error": "Le statut doit être 'accepted' ou 'rejected'."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            vacance = Vacation.objects.get(id=vacation_id, user_id=employer_id)
+            vacance.status = data["status"]
+            vacance.save()
+            return Response({"message": f"La demande de vacances a été marquée comme {data['status']}."}, status=status.HTTP_200_OK)
+
+        except Vacation.DoesNotExist:
+            return Response({"error": "Aucune demande de vacances ne correspond à cet identifiant et cet utilisateur."}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
+                
+            
+
+        
+
+
+
         
         
 
