@@ -50,4 +50,5 @@ urlpatterns = [
     path('api/add_vacation/<int:employer_id>/', VacationAPIVew.as_view(), name="add_vacation"),
     path('api/view_vacation/', VacationAPIVew.as_view(), name="view_vacation"),
     path('api/vacation_status/<int:employer_id>/<int:vacation_id>/', VacationAPIVew.as_view(), name="vacation_status"),
+    path("api/password_reset/", include("django_rest_passwordreset.urls", namespace="password_reset")),
 ]

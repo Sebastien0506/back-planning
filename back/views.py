@@ -14,7 +14,11 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 from rest_framework import status, permissions
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMultiAlternatives
+from django.dispatch import receiver
+from django.template.loader import render_to_string
+from django.urls import reverse
+from django_rest_passwordreset.signals import reset_password_token_created
 
 User = get_user_model()
 class LogoutView(APIView) :
@@ -60,6 +64,22 @@ def get_user_role(request):
 
     role = user.role if hasattr(user, 'role') else "unknown"
     return Response({"role": role}, status=status.HTTP_200_OK)
+
+@receiver(reset_password_token_created)
+def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs) :
+    print("Email cible : ", reset_password_token.user.email)
+
+    reset_url = f"http://localhost:8000/api/password_reset/confirm/?token={reset_password_token.key}"
+    message = f"Voici votre lien de réinitialisation : {reset_url}"
+
+    email = EmailMultiAlternatives(
+        subject="Réinitialisation du mot de passe",
+        body=message,
+        from_email="noreply@planeasy.com",
+        to=[reset_password_token.user.email],
+    )
+    email.send()
+    print("Mail envoyé")
     
 @api_view(['POST'])
 @permission_classes([AllowAny])
