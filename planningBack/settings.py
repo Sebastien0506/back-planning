@@ -56,6 +56,11 @@ AUTH_USER_MODEL = "back.User"
 # EMAIL_HOST_PASSWORD = 'your-email account-password'
 # EMAIL_USE_TLS = True
 # EMAIL_USE_SSL = False
+# Looking to send emails in production? Check out our Email API/SMTP product!
+EMAIL_HOST = 'sandbox.smtp.mailtrap.io'
+EMAIL_HOST_USER = '356974a37670ae'
+EMAIL_HOST_PASSWORD = '492b143c80dcf1'
+EMAIL_PORT = '2525'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',

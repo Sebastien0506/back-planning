@@ -14,6 +14,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import get_user_model
 from rest_framework.views import APIView
 from rest_framework import status, permissions
+from django.core.mail import send_mail
 
 User = get_user_model()
 class LogoutView(APIView) :
@@ -339,10 +340,11 @@ class EmployerListView(APIView) :
                 return Response({"error" : "Aucun magasin n'existe avec cette identifiant."}, status=status.HTTP_404_NOT_FOUND)
             #On récupère les données du serializer
             data = serializer.validated_data
+            email = data["email"]
             #On créé un nouvel utilisateur en lui donnant le role employer
             new_user = User.objects.create_user(
                 username=data["username"],
-                email=data["email"],
+                email=email,
                 last_name=data["last_name"],
                 password="Password@1",
                 role="employe",
@@ -361,6 +363,13 @@ class EmployerListView(APIView) :
                 start_job=working["start_job"],
                 end_job=working["end_job"]
             )
+            send_mail(
+                subject="Welcome to Planeasy",
+                message="Vous venez d'être ajouté à Planeasy",
+                from_email="noreply@gmail.com",
+                recipient_list=[email]
+            )
+
             #On retourne un message de succès
             return Response({"message" : "Employé créé avec succès."}, status=status.HTTP_201_CREATED)
         except Exception as e :
@@ -512,7 +521,8 @@ class VacationAPIVew(APIView) :
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
-                
+
+
             
 
         
