@@ -87,12 +87,12 @@ SIMPLE_JWT = {
 }
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Autorise les requêtes du frontend
+    "http://localhost:4200",  # Autorise les requêtes du frontend
 ]
 # Sécurité CSRF et CORS
 SESSION_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SECURE = False
-CSRF_TRUSTED_ORIGINS = ["http://localhost:3000"]  # Autorise React à envoyer le CSRF Token
+CSRF_TRUSTED_ORIGINS = ["http://localhost:4200"]  # Autorise React à envoyer le CSRF Token
 CSRF_COOKIE_HTTPONLY = False  # Permet au frontend d'accéder au cookie (si False, il peut être lu par JS)
 CSRF_COOKIE_SAMESITE = "None"
 CSRF_COOKIE_SECURE = False  # Doit être False en local, True en production (HTTPS)

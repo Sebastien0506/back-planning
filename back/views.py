@@ -1,7 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer, ListContratSerializer, ListEmployerSerializer, DetailEmployerSerializer, ListShopSerializer, CheckVacationSerializer, VacationSerializer
+from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer, ListContratSerializer, ListEmployerSerializer, DetailEmployerSerializer, ListShopSerializer, CheckVacationSerializer, VacationSerializer, ListWorkingDaySerializer
 from django.contrib.auth.hashers import make_password, check_password
 from back.models import User, Magasin, Contrat, WorkingDay, Vacation
 from django.middleware.csrf import get_token
@@ -19,10 +19,11 @@ from django.dispatch import receiver
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django_rest_passwordreset.signals import reset_password_token_created
+from .permissions import IsSuperAdminViaCookie
 
 User = get_user_model()
 class LogoutView(APIView) :
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request) : 
         refresh_token = request.COOKIES.get('refresh_token')
@@ -45,6 +46,7 @@ class LogoutView(APIView) :
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def get_user_role(request):
+    
     token = request.COOKIES.get("access_token")
 
     if not token:
@@ -108,8 +110,8 @@ def add_admin(request):
 
             response = Response({"message": "Administrateur créé avec succès."}, status=status.HTTP_201_CREATED)
 
-            refresh = RefreshToken.for_user(user)
-            access_token = str(refresh.access_token)
+            refresh_token = RefreshToken.for_user(user)
+            access_token = str(refresh_token.access_token)
 
             response.set_cookie(
                 key="access_token",
@@ -117,6 +119,13 @@ def add_admin(request):
                 httponly=True,
                 secure=False,
                 samesite="None",
+            )
+            response.set_cookie(
+                key="refresh_token",
+                value=refresh_token,
+                httponly=True,
+                secure=False,
+                samesite="None"
             )
 
             return response
@@ -156,10 +165,10 @@ def login(request):
             logger.warning(f"Mot de passe incorrect pour l'utilisateur: {user.email}")
             return Response({"error": "Identifiants incorrects."}, status=status.HTTP_401_UNAUTHORIZED)
 
-        # Génération des tokens JWT
-        # refresh = RefreshToken.for_user(user)
+        
 
         refresh_token = RefreshToken.for_user(user)
+        refresh_token["role"] = user.role
         access_token = str(refresh_token.access_token)
         # Création de la réponse sécurisée
         response = Response({
@@ -176,9 +185,9 @@ def login(request):
         )
         response.set_cookie(
             key='refresh_token',
-            value=refresh_token,
+            value=str(refresh_token),
             httponly=True,
-            secure=True,
+            secure=False,
             samesite='None',
             max_age=300
         )
@@ -330,7 +339,7 @@ class ContratView(APIView) :
 
 class EmployerListView(APIView) : 
     #On définit les permissions
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperAdminViaCookie]
 
     #On créer le code pour ajouter l'employer
     def post(self, request, contrat_id, shop_id) :
@@ -396,13 +405,8 @@ class EmployerListView(APIView) :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
     #On créé le code pour afficher les employes
-    def get(self, request) :
-        #On vérifie si le role de l'utilisateur est superadmin
-        if request.user.role != "superadmin" :
-            return Response({"error" : "Vous n'avez pas la permission de voir tous les employes."}, status=status.HTTP_401_UNAUTHORIZED)
-        
+    def get(self, request):
         try : 
-            #On récupère les employes lier à l'admin
             employes = User.objects.filter(admin=request.user)
             serializer = ListEmployerSerializer(employes, many=True)
             return Response(serializer.data)
@@ -429,9 +433,9 @@ class EmployerListView(APIView) :
          
 
 class EmployerDetailAPIView(APIView) :
+    permission_classes = [IsSuperAdminViaCookie]
     def get(self, request, pk) :
-        if request.user.role != "superadmin" : 
-            return Response({"error" : "Vous n'avez pas la permission de modifier un employer."}, status=status.HTTP_401_UNAUTHORIZED)
+        
         try :
             #On récupère l'employer grace à sont id 
             employe = User.objects.get(pk=pk, admin=request.user)
@@ -441,22 +445,25 @@ class EmployerDetailAPIView(APIView) :
             magasins = Magasin.objects.filter(employes=employe)
             #On récupère le contrat lier à l'employer
             contrat = employe.contrat
-
+            working_day = WorkingDay.objects.filter(user=employe)
             magasins_data = ListShopSerializer(magasins, many=True).data
             contrats_data = ListContratSerializer(contrat).data if contrat else None
+            working_day_data = ListWorkingDaySerializer(working_day, many=True).data
+            
             
             data = serializer.data
             data["magasins"] = magasins_data
             data["contrats"] = contrats_data
+            data["working_day"] = working_day_data
             return Response(data)
         except User.DoesNotExist : 
             return Response({"error" : "Employé introuvable."}, status=status.HTTP_404_NOT_FOUND)
     
     def patch(self, request, employer_id):
-        #On vérifie si l'utilisateur à le rôle superadmin
-        if request.user.role != "superadmin":
-         return Response({"error": "Vous n'avez pas la permission de modifier un employé."},
-                            status=status.HTTP_401_UNAUTHORIZED)
+        # #On vérifie si l'utilisateur à le rôle superadmin
+        # if request.user.role != "superadmin":
+        #  return Response({"error": "Vous n'avez pas la permission de modifier un employé."},
+        #                     status=status.HTTP_401_UNAUTHORIZED)
     
         try:
             #On récupère l'employer

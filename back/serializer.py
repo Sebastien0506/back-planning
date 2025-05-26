@@ -321,11 +321,16 @@ class ListEmployerSerializer(serializers.ModelSerializer) :
     #Serializer pour récuperer tous les employes lier à un superadmin
     class Meta :
         model = User
-        fields = ["username", "last_name"]
+        fields = ["id", "username", "last_name", "email"]
 class ListShopSerializer(serializers.ModelSerializer) :
     class Meta : 
         model = Magasin
         fields = ["shop_name"]
+
+class ListWorkingDaySerializer(serializers.ModelSerializer) : 
+    class Meta:
+        model = WorkingDay
+        fields = ['working_day', 'start_job', 'end_job', 'user']
 
 class ListContratSerializer(serializers.ModelSerializer) :
     class Meta :
