@@ -303,7 +303,7 @@ class AddEmployerSerializer(serializers.ModelSerializer) :
 
         if working_day_data:
             # Supprimer l'ancien
-            instance.working_day.all().delete()
+            instance.working_day.delete()
             # Créer le nouveau
             WorkingDay.objects.create(user=instance, **working_day_data)
 
@@ -325,7 +325,7 @@ class ListEmployerSerializer(serializers.ModelSerializer) :
 class ListShopSerializer(serializers.ModelSerializer) :
     class Meta : 
         model = Magasin
-        fields = ["shop_name"]
+        fields = ["id", "shop_name"]
 
 class ListWorkingDaySerializer(serializers.ModelSerializer) : 
     class Meta:
@@ -335,7 +335,7 @@ class ListWorkingDaySerializer(serializers.ModelSerializer) :
 class ListContratSerializer(serializers.ModelSerializer) :
     class Meta :
         model = Contrat
-        fields = ["contrat_name"]
+        fields = ["id", "contrat_name"]
 
 class DetailEmployerSerializer(serializers.ModelSerializer) : 
 

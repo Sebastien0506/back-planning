@@ -37,6 +37,7 @@ urlpatterns = [
     path('api/get_user_role/', get_user_role, name='get_user_role'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('api/shop/',ShopView.as_view(), name='add_shop'),
+    path('api/view_shop/', ShopView.as_view(), name="view_shop"),
     path('api/shops/<int:shop_id>/', ShopView.as_view(), name='delete_shop'),
     path('api/shop_update/<int:shop_id>/', ShopView.as_view(), name='update_shop'),
     path('api/contrat/', ContratView.as_view(), name="add_contrat"),

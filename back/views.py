@@ -207,7 +207,7 @@ def login(request):
 
 #Class pour gérer les magasins
 class ShopView(APIView) : 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperAdminViaCookie]
     #Ajout d'un magasin
     def post(self, request) :
         try : 
@@ -230,6 +230,17 @@ class ShopView(APIView) :
             }, status=status.HTTP_201_CREATED)
         except Exception as e : 
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    def get(self, request) :
+        try : 
+            contrats = Contrat.objects.all()
+            serializer = ListShopSerializer(contrats, many=True)
+
+            return Response(serializer.data)
+        except Magasin.DoesNotExist: 
+            return Response({"error" : "Aucun magasin trouvé."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e :
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     #Modification d'un magasin
     def put(self, request, shop_id) :
         #On vérifie le role de l'utilisateur 
@@ -273,7 +284,7 @@ class ShopView(APIView) :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ContratView(APIView) : 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSuperAdminViaCookie]
     def post(self, request) :
         #On vérifie si la requete à bien la méthode post
         if request.method != "POST" :
@@ -324,8 +335,7 @@ class ContratView(APIView) :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     def get(self, request) : 
-        if request.user.role != "superadmin" : 
-            return Response({"error" : "Vous n'avez pas la permission de voir les contrats."}, status=status.HTTP_401_UNAUTHORIZED)
+        
         
         try : 
             contrats = Contrat.objects.all()
@@ -434,36 +444,49 @@ class EmployerListView(APIView) :
 
 class EmployerDetailAPIView(APIView) :
     permission_classes = [IsSuperAdminViaCookie]
-    def get(self, request, pk) :
-        
-        try :
-            #On récupère l'employer grace à sont id 
+    def get(self, request, pk):
+        try:
+            # On récupère l'employé par son ID et l'admin qui fait la requête
             employe = User.objects.get(pk=pk, admin=request.user)
             serializer = DetailEmployerSerializer(employe)
-            
-            #On récupère le magasin lier à l'employer
-            magasins = Magasin.objects.filter(employes=employe)
-            #On récupère le contrat lier à l'employer
-            contrat = employe.contrat
-            working_day = WorkingDay.objects.filter(user=employe)
+
+            # Magasins liés à l'employé
+            magasin_employe = Magasin.objects.filter(employes=employe)
+            magasin_employe_data = ListShopSerializer(magasin_employe, many=True).data
+
+            # Tous les magasins
+            magasins = Magasin.objects.all()
             magasins_data = ListShopSerializer(magasins, many=True).data
-            contrats_data = ListContratSerializer(contrat).data if contrat else None
+
+            # Tous les contrats
+            contrats = Contrat.objects.all()
+            contrats_data = ListContratSerializer(contrats, many=True).data
+
+            # Contrat de l'employé
+            contrat_employe = getattr(employe, 'contrat', None)
+            contrat_employe_data = ListContratSerializer(contrat_employe).data if contrat_employe else None
+
+            # Jours de travail de l'employé
+            working_day = WorkingDay.objects.filter(user=employe)
             working_day_data = ListWorkingDaySerializer(working_day, many=True).data
-            
-            
+
+            # Construction de la réponse finale
             data = serializer.data
-            data["magasins"] = magasins_data
-            data["contrats"] = contrats_data
-            data["working_day"] = working_day_data
+            data.update({
+                "magasin_employe": magasin_employe_data,
+                "magasins_data": magasins_data,
+                "contrat_employe": contrat_employe_data,
+                "contrats_data": contrats_data,
+                "working_day": working_day_data
+            })
+
             return Response(data)
-        except User.DoesNotExist : 
-            return Response({"error" : "Employé introuvable."}, status=status.HTTP_404_NOT_FOUND)
+
+        except User.DoesNotExist:
+            return Response({"error": "Employé introuvable."}, status=status.HTTP_404_NOT_FOUND)
     
     def patch(self, request, employer_id):
-        # #On vérifie si l'utilisateur à le rôle superadmin
-        # if request.user.role != "superadmin":
-        #  return Response({"error": "Vous n'avez pas la permission de modifier un employé."},
-        #                     status=status.HTTP_401_UNAUTHORIZED)
+       
     
         try:
             #On récupère l'employer
