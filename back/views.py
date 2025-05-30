@@ -232,8 +232,8 @@ class ShopView(APIView) :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     def get(self, request) :
         try : 
-            contrats = Contrat.objects.all()
-            serializer = ListShopSerializer(contrats, many=True)
+            magasins = Magasin.objects.all()
+            serializer = ListShopSerializer(magasins, many=True)
 
             return Response(serializer.data)
         except Magasin.DoesNotExist: 
