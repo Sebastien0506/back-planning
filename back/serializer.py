@@ -231,13 +231,13 @@ class ContratSerializer(serializers.ModelSerializer) :
         
 class AddEmployerSerializer(serializers.ModelSerializer) :
     working_day = WorkingDaySerializer(required=False)
-    magasin = serializers.PrimaryKeyRelatedField(queryset=Magasin.objects.all(), many=True)
+    magasins = serializers.PrimaryKeyRelatedField(queryset=Magasin.objects.all(), many=True)
     contrat = serializers.PrimaryKeyRelatedField(queryset=Contrat.objects.all())
     password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta : 
         model = User
-        fields = ["username", "last_name", "email","password", "working_day", "contrat", "magasin"]
+        fields = ["username", "last_name", "email","password", "working_day", "contrat", "magasins"]
     #On nettoie les champs
     def clean_input(self, value) : 
         return html.escape(value)

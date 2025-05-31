@@ -20,6 +20,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django_rest_passwordreset.signals import reset_password_token_created
 from .permissions import IsSuperAdminViaCookie
+from django.shortcuts import get_object_or_404
 
 User = get_user_model()
 class LogoutView(APIView) :
@@ -352,36 +353,29 @@ class EmployerListView(APIView) :
     permission_classes = [IsSuperAdminViaCookie]
 
     #On créer le code pour ajouter l'employer
-    def post(self, request, contrat_id, shop_id) :
-        
+    def post(self, request):
         try : 
-            #On vérifie si l'utilisateur à la permission d'ajouter des employer
-            if request.user.role != "superadmin" :
-                return Response({"error" : "Vous n'avez pas la permission d'ajouter des employer."}, status=status.HTTP_401_UNAUTHORIZED)
-            
-            #On initialise le serializer
-            serializer = AddEmployerSerializer(data=request.data)
+            data = request.data
+            serializer = AddEmployerSerializer(data=data)
 
-            #On vérifie si le serializer est valide
             if not serializer.is_valid() :
+                print("Erreur serializer : ", serializer.errors  )
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-            #On vérifie que le contrat existe
-            try : 
-                contrat = Contrat.objects.get(id=contrat_id)
-            except Contrat.DoesNotExist:
-                return Response({"error" : "Aucun contrat n'existe avec cette identifiant."}, status=status.HTTP_404_NOT_FOUND)
-            
-            #On vérifie que la magasin existe
-            try : 
-                shop = Magasin.objects.get(id=shop_id) 
-            except Magasin.DoesNotExist :
-                return Response({"error" : "Aucun magasin n'existe avec cette identifiant."}, status=status.HTTP_404_NOT_FOUND)
-            #On récupère les données du serializer
+            #On récupère les contrats
+            contrat_id = data.get("contrat")
+            contrat = get_object_or_404(Contrat, id=contrat_id)
+
+            #On récupère les magasin coché
+            shop_ids = data.get("magasins", [])
+            if not isinstance(shop_ids, list) or not shop_ids :
+                return Response({"error" : "Aucun magasin séléctionner"}, status=status.HTTP_400_BAD_REQUEST)
+            #On attend une liste d'id
+            magasins = Magasin.objects.filter(id__in = shop_ids) 
+            if not magasins.exists :
+                return Response({"error" : "Aucun magasin valide trouvé."}, status=status.HTTP_404_NOT_FOUND)
             data = serializer.validated_data
             email = data["email"]
-            #On créé un nouvel utilisateur en lui donnant le role employer
-            new_user = User.objects.create_user(
+            new_user = User.objects.create(
                 username=data["username"],
                 email=email,
                 last_name=data["last_name"],
@@ -390,15 +384,12 @@ class EmployerListView(APIView) :
                 contrat=contrat,
                 admin=request.user
             )
-            #On lui assigne les magasins
-            new_user.magasin.add(shop)
-            #On récupère les donnée dans workingday
+            for shop in magasins :
+                new_user.magasin.add(shop)
             working = data["working_day"]
-            
-            #On créer un nouvel object working_day
             WorkingDay.objects.create(
-                user=new_user,
-                working_day=working["working_day"],
+                user = new_user,
+                working_day = working["working_day"],
                 start_job=working["start_job"],
                 end_job=working["end_job"]
             )
@@ -408,12 +399,11 @@ class EmployerListView(APIView) :
                 from_email="noreply@gmail.com",
                 recipient_list=[email]
             )
-
-            #On retourne un message de succès
             return Response({"message" : "Employé créé avec succès."}, status=status.HTTP_201_CREATED)
-        except Exception as e :
+        except Exception as e : 
+            import traceback
+            traceback.print_exc()
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
     #On créé le code pour afficher les employes
     def get(self, request):
         try : 
