@@ -242,6 +242,8 @@ class ShopView(APIView) :
         except Exception as e :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+
     #Modification d'un magasin
     def put(self, request, shop_id) :
         #On vérifie le role de l'utilisateur 
@@ -560,7 +562,18 @@ class VacationAPIVew(APIView) :
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-
+class ShopDetailView(APIView) :
+    permission_classes=[IsSuperAdminViaCookie]
+    
+    def get(self, request, shop_id) :
+        try :
+            magasin = Magasin.objects.filter(id=shop_id)
+            serializer= ListShopSerializer(magasin)
+            return Response(serializer.data)
+        except Magasin.DoesNotExist: 
+            return Response({"error" : "Aucun magasin trouvé."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e : 
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
             
