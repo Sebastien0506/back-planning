@@ -245,33 +245,25 @@ class ShopView(APIView) :
 
 
     #Modification d'un magasin
-    def put(self, request, shop_id) :
-        #On vérifie le role de l'utilisateur 
-        if request.user.role != "superadmin" : 
-            return Response({"error" : "Vous n'avez pas la permission de modifier un magasin."}, status=status.HTTP_401_UNAUTHORIZED)
-        
-        try : 
-            #On initialise le serializer
-            serializer = ShopSerializer(data=request.data)
+    def put(self, request, shop_id):
+        try:
+            # On récupère le magasin à modifier
+            shop = get_object_or_404(Magasin, id=shop_id)
 
-            #On vérifie si le serializer est valide
+            # On initialise le serializer avec l'instance du magasin (important pour l'update)
+            serializer = ShopSerializer(instance=shop, data=request.data)
+
+            # On vérifie si le serializer est valide
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-            
-            #On récupère les données du serializer
-            data = serializer.validated_data
-            
-            try :
-                #On récupère le magasin à modifier
-                shop = Magasin.objects.get(id=shop_id)
-            except Exception as e :
-                return Response({"error" : str(e)}, status=status.HTTP_404_NOT_FOUND)
-            #On met à jour le nom
-            shop.shop_name = data["shop_name"]
-            shop.save()
-            return Response({"message" : "Le nom du magasin a bien été modifier."}, status=status.HTTP_200_OK)
-        except Exception as e : 
-            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            # On sauvegarde les modifications
+            serializer.save()
+
+            return Response({"message": "Le nom du magasin a bien été modifié."}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     #Suppression d'un magasin
     def delete(self, request, shop_id) :
@@ -567,7 +559,8 @@ class ShopDetailView(APIView) :
     
     def get(self, request, shop_id) :
         try :
-            magasin = Magasin.objects.filter(id=shop_id)
+            #On récupère l'objet ayant sont id
+            magasin = get_object_or_404(Magasin,id=shop_id)
             serializer= ListShopSerializer(magasin)
             return Response(serializer.data)
         except Magasin.DoesNotExist: 

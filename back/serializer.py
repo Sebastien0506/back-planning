@@ -187,12 +187,12 @@ class LoginSerializer(serializers.Serializer) :
 class ShopSerializer(serializers.ModelSerializer) : 
     class Meta:
         model = Magasin
-        fields = ['shop_name']
+        fields = ['id','shop_name']
     # Échappe tous les caractès html
     def clean_input(self, value) : 
         return html.escape(value)
     
-    def validate_name(self, value) :
+    def validate_shop_name(self, value) :
         cleaned_value = self.clean_input(value)
         #Supprime les espaces au début et à la fin
         cleaned_value = cleaned_value.strip()
