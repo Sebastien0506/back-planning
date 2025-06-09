@@ -341,6 +341,17 @@ class ContratView(APIView) :
         except Exception as e :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
+class DetailContrat(APIView) : 
+    permission_classes = [IsSuperAdminViaCookie]
+    def get(self, request, contrat_id) : 
+        try : 
+            contrat = get_object_or_404(Contrat, id=contrat_id)
+            serializer = ListContratSerializer(contrat)
+            return Response(serializer.data)
+        except Contrat.DoesNotExist : 
+            return Response({"error" : "Aucun contrat avec cette identifiant existe."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e :
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class EmployerListView(APIView) : 
     #On définit les permissions
