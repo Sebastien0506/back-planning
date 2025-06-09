@@ -200,7 +200,7 @@ class ShopSerializer(serializers.ModelSerializer) :
         if len(cleaned_value) < 1 : 
             raise serializers.ValidationError("Le champ du formulaire doit contenir au moins une lettre.")
         #Vérifie si les caractères sont des caractères autorisé
-        if not cleaned_value.isalnum() : 
+        if not all(char.isalnum() or char.isspace() for char in cleaned_value) : 
             raise serializers.ValidationError("Données incorrect. Seules les lettres et les chiffres sont autorisés.")
         
         return cleaned_value
