@@ -6,7 +6,7 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
     TokenVerifyView
 )
-from back.views import add_admin, login, get_user_role,get_csrf_cookie, LogoutView, ShopView, ContratView, EmployerListView, EmployerDetailAPIView, VacationAPIVew, ShopDetailView# ✅ Import de la vue
+from back.views import add_admin, login, get_user_role,get_csrf_cookie, LogoutView, ShopView, ContratView, EmployerListView, EmployerDetailAPIView, VacationAPIVew, ShopDetailView, Profil# ✅ Import de la vue
 
 # Serializers define the API representation.
 User = get_user_model()
@@ -54,4 +54,5 @@ urlpatterns = [
     path('api/view_vacation/', VacationAPIVew.as_view(), name="view_vacation"),
     path('api/vacation_status/<int:employer_id>/<int:vacation_id>/', VacationAPIVew.as_view(), name="vacation_status"),
     path("api/password_reset/", include("django_rest_passwordreset.urls", namespace="password_reset")),
+    path('api/profil_user/', Profil.as_view(), name="profil_user"),
 ]

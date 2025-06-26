@@ -23,6 +23,7 @@ from django.urls import reverse
 from django_rest_passwordreset.signals import reset_password_token_created
 from .permissions import IsSuperAdminViaCookie
 from django.shortcuts import get_object_or_404
+from .authentification import CookieJWTAuthentication
 
 User = get_user_model()
 class LogoutView(APIView) :
@@ -587,6 +588,19 @@ class ShopDetailView(APIView) :
         except Exception as e : 
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+class Profil(APIView) :
+    permission_classes = [IsAuthenticated]
+    authentication_classes = [CookieJWTAuthentication]
+
+    def get(self, request) :
+        return Response({
+            'id' : request.user.id,
+            'username' : request.user.username,
+            'last_name' : request.user.last_name,
+            'email' : request.user.email
+        })
+        
+    
 
             
 

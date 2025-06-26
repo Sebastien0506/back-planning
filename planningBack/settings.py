@@ -103,9 +103,8 @@ CORS_ALLOW_CREDENTIALS = True  # Permet d'envoyer des cookies (comme CSRF)
 REST_FRAMEWORK = {
     # Authentification avec JWT
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        # 'rest_framework.authentication.SessionAuthentication',
-        # 'rest_framework.authentication.BasicAuthentication',
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        # 'back.authentication.CookieJWTAuthentication',  # custom class to read JWT from cookies
+        'rest_framework_simplejwt.authentication.JWTAuthentication',  # default header-based JWT
     ],
 
     # Permissions : permet aux utilisateurs authentifiés d'accéder aux données
