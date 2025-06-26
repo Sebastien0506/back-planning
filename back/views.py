@@ -1,5 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework.response import Response
+from django.http import JsonResponse
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer, ListContratSerializer, ListEmployerSerializer, DetailEmployerSerializer, ListShopSerializer, CheckVacationSerializer, VacationSerializer, ListWorkingDaySerializer
 from django.contrib.auth.hashers import make_password, check_password
@@ -43,6 +45,11 @@ class LogoutView(APIView) :
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
         return response
+
+
+@ensure_csrf_cookie
+def get_csrf_cookie(request) :
+    return JsonResponse({"message" : "CSRF token set"})
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -138,6 +145,7 @@ def add_admin(request):
     
 
 @api_view(['POST'])
+@csrf_protect
 @permission_classes([AllowAny])
 def login(request):
     logger = logging.getLogger(__name__)

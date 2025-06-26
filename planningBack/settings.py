@@ -92,9 +92,9 @@ CORS_ALLOWED_ORIGINS = [
 # Sécurité CSRF et CORS
 SESSION_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SECURE = False
-CSRF_TRUSTED_ORIGINS = ["http://localhost:4200"]  # Autorise React à envoyer le CSRF Token
+CSRF_TRUSTED_ORIGINS = ["http://localhost:4200"]  # Autorise Angular à envoyer le CSRF Token
 CSRF_COOKIE_HTTPONLY = False  # Permet au frontend d'accéder au cookie (si False, il peut être lu par JS)
-CSRF_COOKIE_SAMESITE = "None"
+CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = False  # Doit être False en local, True en production (HTTPS)
 CSRF_USE_SESSIONS = False  # Assure-toi qu'il est False pour que le CSRF soit stocké en cookie
 
