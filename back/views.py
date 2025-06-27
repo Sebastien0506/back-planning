@@ -573,6 +573,22 @@ class VacationAPIVew(APIView) :
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+class VacationUser(APIView) :
+    authentication_classes = [CookieJWTAuthentication]
+    def get(self, request) :
+        #On récupère l'utilisateur dans la requête
+        user = request.user
+        
+        try :
+            #On filtre les vacances de l'utilisateur
+            vacances = Vacation.objects.filter(user=user)
+            if not vacances.exists() :
+                return Response({"message" : "Aucune demande de vacances trouvée."}, status=status.HTTP_200_OK)
+            serializer = VacationSerializer(vacances, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        except Exception as e :
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 class ShopDetailView(APIView) :
     permission_classes=[IsSuperAdminViaCookie]
@@ -599,6 +615,22 @@ class Profil(APIView) :
             'last_name' : request.user.last_name,
             'email' : request.user.email
         })
+    
+    def put(self, request) :
+        #On récupère l'utilisateur courant
+        user = request.user
+        #On récupère les données de la requête
+        data = request.data 
+        #On initialise le serializer.
+        serializer = UserSerializer(user, data=data, partial=True)
+        try : 
+            if not serializer.is_valid() :
+                return Response(serializer.errors)
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e :
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
         
     
 
