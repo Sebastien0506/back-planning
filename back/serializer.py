@@ -365,10 +365,10 @@ class CheckVacationSerializer(serializers.ModelSerializer) :
         return data
 class VacationSerializer(serializers.ModelSerializer) :
     username = serializers.CharField(source='user.username', read_only=True)
-
+    last_name = serializers.CharField(source="user.last_name", read_only=True)
     class Meta : 
         model = Vacation
-        fields = ['username', "start_day", "end_day", "status"]
+        fields = ['id', 'username','last_name', "start_day", "end_day", "status"]
 
         
 

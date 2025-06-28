@@ -515,17 +515,16 @@ class EmployerDetailAPIView(APIView) :
             "contrat": ContratSerializer(contrat).data if contrat else None
         })
 class VacationAPIVew(APIView) :
+    authentication_classes = [CookieJWTAuthentication]
+    permission_classes = [IsSuperAdminViaCookie]
     #On fait la demande de vacance
-    def post(self, request, employer_id) : 
+    def post(self, request) : 
         #On vérifie si les données sont présent dans la requête
         if not request.data : 
             return Response({"error" : "Aucune données n'a été fournis."}, status=status.HTTP_400_BAD_REQUEST)
         
-        try :
-            #On vérifie si l'utilisateur existe
-            user = User.objects.get(id=employer_id)
-        except User.DoesNotExist :
-            return Response({"error" : "Utilisateur introuvable."}, status=status.HTTP_404_NOT_FOUND)
+        user = request.user
+        
         #On vérifie si le serializer est valide
         serializer = CheckVacationSerializer(data=request.data)
         
