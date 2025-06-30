@@ -3,7 +3,7 @@ from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework.response import Response
 from django.http import JsonResponse
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from back.serializer import UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer, ListContratSerializer, ListEmployerSerializer, DetailEmployerSerializer, ListShopSerializer, CheckVacationSerializer, VacationSerializer, ListWorkingDaySerializer
+from back.serializer import ChangeStatusVacationSerializer, UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer, ListContratSerializer, ListEmployerSerializer, DetailEmployerSerializer, ListShopSerializer, CheckVacationSerializer, VacationSerializer, ListWorkingDaySerializer
 from django.contrib.auth.hashers import make_password, check_password
 from back.models import User, Magasin, Contrat, WorkingDay, Vacation
 from django.middleware.csrf import get_token
@@ -514,15 +514,56 @@ class EmployerDetailAPIView(APIView) :
             "magasins": ShopSerializer(magasins, many=True).data,
             "contrat": ContratSerializer(contrat).data if contrat else None
         })
+
+#CETTE CLASSE PERMET DE RÉCUPÉRER TOUTES LES DEMANDES DE VACANCE DES EMPLOYÉS ET DE MODIFIER LEUR STATUS
 class VacationAPIVew(APIView) :
-    authentication_classes = [CookieJWTAuthentication]
+    
     permission_classes = [IsSuperAdminViaCookie]
-    #On fait la demande de vacance
+
+   
+    #On récupère tout les demandes de vacances
+    def get(self,request) : 
+        #On vérifie le role de l'utilisateur 
+        if request.user.role != "superadmin" :
+            return Response({"error" : "Vous n'avez pas la permission de voir les demande de vacances."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        try : 
+            vacance = Vacation.objects.select_related('user').all()
+            serializer = VacationSerializer(vacance, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e :
+            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def patch(self, request, vacation_id):
+        
+        try:
+            #On récupère la demande de vacance
+            vacance = Vacation.objects.get(id=vacation_id)
+            #On initialise le serializer
+            serializer = ChangeStatusVacationSerializer(vacance, data=request.data)
+
+            #Si le serializer n'est pas valide
+            if not serializer.is_valid() :
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            #On sauvegarde
+            serializer.save(Vacation, partial=True)
+            
+        except Vacation.DoesNotExist:
+            return Response({"error": "Aucune demande de vacances ne correspond à cet identifiant et cet utilisateur."}, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+#CETTE CLASSE PERMET AU UTILISATEUR AUTHENTIFIER (ADMI, SUPERADMIN ET EMPLOYE) DES FAIRE UNE DEMANDES DE VACANCE       
+class VacationUser(APIView) :
+    authentication_classes = [CookieJWTAuthentication]
+     #On fait la demande de vacance
     def post(self, request) : 
         #On vérifie si les données sont présent dans la requête
         if not request.data : 
             return Response({"error" : "Aucune données n'a été fournis."}, status=status.HTTP_400_BAD_REQUEST)
-        
+        #On récupère l'utilisateur dans la requête
         user = request.user
         
         #On vérifie si le serializer est valide
@@ -537,43 +578,12 @@ class VacationAPIVew(APIView) :
                 end_day = serializer.validated_data['end_day'],
                 status="pending"
             )
+            #On retourne la réponse au format JSON
             return Response({"message" : "Vacance en attente de validation."}, status=status.HTTP_201_CREATED)
+        
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    #On récupère tout les demandes de vacances
-    def get(self,request) : 
-        #On vérifie le role de l'utilisateur 
-        if request.user.role != "superadmin" :
-            return Response({"error" : "Vous n'avez pas la permission de voir les demande de vacances."}, status=status.HTTP_401_UNAUTHORIZED)
-
-        try : 
-            vacance = Vacation.objects.select_related('user').all()
-            serializer = VacationSerializer(vacance, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Exception as e :
-            return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    def patch(self, request, employer_id, vacation_id):
-        if request.user.role != "superadmin":
-            return Response({"error": "Vous n'avez pas la permission d'accepter ou de refuser les demandes de vacances."}, status=status.HTTP_401_UNAUTHORIZED)
-
-        data = request.data
-        if data.get("status") not in ["accepted", "rejected"]:
-            return Response({"error": "Le statut doit être 'accepted' ou 'rejected'."}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            vacance = Vacation.objects.get(id=vacation_id, user_id=employer_id)
-            vacance.status = data["status"]
-            vacance.save()
-            return Response({"message": f"La demande de vacances a été marquée comme {data['status']}."}, status=status.HTTP_200_OK)
-
-        except Vacation.DoesNotExist:
-            return Response({"error": "Aucune demande de vacances ne correspond à cet identifiant et cet utilisateur."}, status=status.HTTP_404_NOT_FOUND)
-
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-class VacationUser(APIView) :
-    authentication_classes = [CookieJWTAuthentication]
+    
     def get(self, request) :
         #On récupère l'utilisateur dans la requête
         user = request.user

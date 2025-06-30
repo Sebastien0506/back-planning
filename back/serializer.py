@@ -370,6 +370,35 @@ class VacationSerializer(serializers.ModelSerializer) :
         model = Vacation
         fields = ['id', 'username','last_name', "start_day", "end_day", "status"]
 
+class ChangeStatusVacationSerializer(serializers.ModelSerializer) :
+    class Meta : 
+        model = Vacation
+        fields = ['id', "start_day", "end_day", "status"]
+    
+    def cleaned_input(self, value) : 
+        return html.escape(value)
+    
+    def validateData(self, data) :
+        #On récupère les données.
+        start_day = data.get("start_day")
+        end_day = data.get("end_day")
+
+        #On converti les données en type Date.
+        start_date = datetime.strptime(start_day, "%Y-%m-%d")
+        end_date = datetime.strptime(end_day, "%Y-%m-%d")
+
+        #On vérifie que la date de début est bien avant celle de fin
+        if not start_date < end_date :
+            raise serializers.ValidationError("La date de fin ne doit pas être avant celle de début")
+         
+    def valid_status(self, value) :
+        cleaned_status = html.escape(value)
+
+        if not cleaned_status.isalpha() :
+            raise serializers.ValidationError("Le status ne doit contenir que des lettres")
+
+    
+
         
 
          
