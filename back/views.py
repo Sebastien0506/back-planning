@@ -24,8 +24,31 @@ from django_rest_passwordreset.signals import reset_password_token_created
 from .permissions import IsSuperAdminViaCookie
 from django.shortcuts import get_object_or_404
 from .authentification import CookieJWTAuthentication
+from django.core.mail import EmailMultiAlternatives
+from django.dispatch import receiver
+from django.template.loader import render_to_string
+from django.urls import reverse
 
 User = get_user_model()
+
+def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs) :
+    context = {
+        'current_user' : reset_password_token.user,
+        'username' : reset_password_token.user.username,
+        'email' : reset_password_token.user.email,
+        'reset_password_url' : f"http://localhost:4200/newpassword?token={reset_password_token.key}"
+    }
+    email_html_message = render_to_string('email/user_reset_password.html', context)
+    email_plaintext_message = render_to_string('email/user_reset_password.txt', context)
+
+    msg = EmailMultiAlternatives(
+        "Réinitialisation de mot de passe",
+        email_plaintext_message,
+        "noreply@planeasy.com",
+        [reset_password_token.user.email]
+    )
+    msg.attach_alternative(email_html_message, "text/html")
+    msg.send()
 class LogoutView(APIView) :
     permission_classes = [permissions.AllowAny]
 
@@ -80,7 +103,7 @@ def get_user_role(request):
 def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs) :
     print("Email cible : ", reset_password_token.user.email)
 
-    reset_url = f"http://localhost:8000/api/password_reset/confirm/?token={reset_password_token.key}"
+    reset_url = f"http://localhost:4200/newpassword?token={reset_password_token.key}"
     message = f"Voici votre lien de réinitialisation : {reset_url}"
 
     email = EmailMultiAlternatives(
@@ -535,23 +558,21 @@ class VacationAPIVew(APIView) :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def patch(self, request, vacation_id):
-        
         try:
             #On récupère la demande de vacance
             vacance = Vacation.objects.get(id=vacation_id)
-            #On initialise le serializer
-            serializer = ChangeStatusVacationSerializer(vacance, data=request.data)
+            #On initialise le serializer avec partial=True
+            serializer = ChangeStatusVacationSerializer(vacance, data=request.data, partial=True)
 
             #Si le serializer n'est pas valide
-            if not serializer.is_valid() :
+            if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
             
             #On sauvegarde
-            serializer.save(Vacation, partial=True)
-            
+            serializer.save()
+            return Response({"message" : "Status de la demade de vacances mis à jour avec succès."})
         except Vacation.DoesNotExist:
             return Response({"error": "Aucune demande de vacances ne correspond à cet identifiant et cet utilisateur."}, status=status.HTTP_404_NOT_FOUND)
-
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

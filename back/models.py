@@ -54,9 +54,9 @@ class Vacation(models.Model) :
     start_day = models.DateField()
     end_day = models.DateField()
     STATUS_CHOICES = (
-        ('pending', 'Pending'),
-        ('approved', 'Approved'),
-        ('rejected', 'Rejected'),
+        ('pending', 'En attente'),
+        ('accepted', 'Accepté'),
+        ('rejected', 'Refusé'),
     )
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     
