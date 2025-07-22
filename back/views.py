@@ -3,9 +3,9 @@ from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from rest_framework.response import Response
 from django.http import JsonResponse
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from back.serializer import ChangeStatusVacationSerializer, UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer, ListContratSerializer, ListEmployerSerializer, DetailEmployerSerializer, ListShopSerializer, CheckVacationSerializer, VacationSerializer, ListWorkingDaySerializer
+from back.serializer import RetrievePlanningSerializer, CalendarEmployeeSerializer, ChangeStatusVacationSerializer, UserSerializer, LoginSerializer, ShopSerializer,ContratSerializer, AddEmployerSerializer, ListContratSerializer, ListEmployerSerializer, DetailEmployerSerializer, ListShopSerializer, CheckVacationSerializer, VacationSerializer, ListWorkingDaySerializer
 from django.contrib.auth.hashers import make_password, check_password
-from back.models import User, Magasin, Contrat, WorkingDay, Vacation
+from back.models import User, Magasin, Contrat, WorkingDay, Vacation, PlanningEntry
 from django.middleware.csrf import get_token
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -28,8 +28,22 @@ from django.core.mail import EmailMultiAlternatives
 from django.dispatch import receiver
 from django.template.loader import render_to_string
 from django.urls import reverse
-
+from datetime import datetime, timedelta, date
+import calendar
+from django.contrib.auth.hashers import make_password
+from django.utils.crypto import get_random_string
+import string 
+from django_rest_passwordreset.models import ResetPasswordToken
 User = get_user_model()
+class UserView(APIView) :
+    authentication_classes = [CookieJWTAuthentication]
+    def get(self, request) :
+        user = request.user
+        return Response({
+            
+        })
+
+
 
 def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs) :
     context = {
@@ -99,6 +113,7 @@ def get_user_role(request):
     role = user.role if hasattr(user, 'role') else "unknown"
     return Response({"role": role}, status=status.HTTP_200_OK)
 
+#Génère un lien de réinitialisation du mot de passe 
 @receiver(reset_password_token_created)
 def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs) :
     print("Email cible : ", reset_password_token.user.email)
@@ -408,15 +423,18 @@ class EmployerListView(APIView) :
                 return Response({"error" : "Aucun magasin séléctionner"}, status=status.HTTP_400_BAD_REQUEST)
             #On attend une liste d'id
             magasins = Magasin.objects.filter(id__in = shop_ids) 
-            if not magasins.exists :
+            if not magasins.exists() :
                 return Response({"error" : "Aucun magasin valide trouvé."}, status=status.HTTP_404_NOT_FOUND)
             data = serializer.validated_data
             email = data["email"]
+            chars = string.ascii_letters + string.digits + string.punctuation
+            password = get_random_string(12, chars)
+            hashed_password = make_password(password)
             new_user = User.objects.create(
                 username=data["username"],
                 email=email,
                 last_name=data["last_name"],
-                password="Password@1",
+                password=hashed_password,
                 role="employe",
                 contrat=contrat,
                 admin=request.user
@@ -430,9 +448,21 @@ class EmployerListView(APIView) :
                 start_job=working["start_job"],
                 end_job=working["end_job"]
             )
+            reset_token = ResetPasswordToken.objects.create(user=new_user)
+            reset_url = f"http://localhost:4200/newpassword?token={reset_token.key}"
+            message = f"""Bienvenue sur Planeasy !
+
+            Votre compte a été créé avec succès.
+
+            Cliquez sur le lien suivant pour définir votre mot de passe :
+            {reset_url}
+
+            Cordialement,
+            L'équipe Planeasy
+            """
             send_mail(
                 subject="Welcome to Planeasy",
-                message="Vous venez d'être ajouté à Planeasy",
+                message=message,
                 from_email="noreply@gmail.com",
                 recipient_list=[email]
             )
@@ -661,8 +691,117 @@ class Profil(APIView) :
         except Exception as e :
             return Response({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
+
+
+class GenerateCalendar(APIView):
+    permission_classes = [IsSuperAdminViaCookie]
+
+    def get(self, request):
+        try:
+            current_year = datetime.now().year
+            current_month = datetime.now().month
+            week_month = calendar.monthcalendar(current_year, current_month)
+
+            # Liste de toutes les dates du mois en cours
+            all_date_in_month = []
+            for week in week_month:
+                for day in week:
+                    if day != 0:
+                        all_date_in_month.append(date(current_year, current_month, day))
+
+            # Map des jours de la semaine en int (0 = lundi)
+            jour_map_inverse = {
+                'Lundi': 0,
+                'Mardi': 1,
+                'Mercredi': 2,
+                'Jeudi': 3,
+                'Vendredi': 4,
+                'Samedi': 5,
+                'Dimanche': 6,
+            }
+
+            users = User.objects.all()
+            for user in users:
+                try:
+                    working_day = WorkingDay.objects.get(user=user)
+                except WorkingDay.DoesNotExist:
+                    continue
+
+                # Récupération des jours de travail en int
+                jours_travail = [jour_map_inverse[j] for j in working_day.working_day]
+
+                # Récupération de tous les jours de vacances pour cet utilisateur
+                vacation_days = set()
+                vacations = Vacation.objects.filter(user=user)
+                for vac in vacations:
+                    current = vac.start_day
+                    while current <= vac.end_day:
+                        vacation_days.add(current)
+                        current += timedelta(days=1)
+
+                # Génération du planning
+                for date_jour in all_date_in_month:
+                    jour_semaine = date_jour.weekday()
+
+                    if date_jour in vacation_days:
+                        if not PlanningEntry.objects.filter(user=user, date=date_jour, label='Vacances').exists():
+                            PlanningEntry.objects.create(
+                                user=user,
+                                date=date_jour,
+                                start_hour=None,
+                                end_hour=None,
+                                label='Vacances'
+                            )
+                    elif jour_semaine in jours_travail:
+                        if not PlanningEntry.objects.filter(user=user, date=date_jour, label='Travail').exists():
+                            PlanningEntry.objects.create(
+                                user=user,
+                                date=date_jour,
+                                start_hour=working_day.start_job,
+                                end_hour=working_day.end_job,
+                                label='Travail'
+                            )
+
+            return Response({'message': "Planning généré avec succès."}, status=status.HTTP_201_CREATED)
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-    
+    # def _generate_vacation_dates(self, vacation) :
+    #     current = vacation.start_day
+    #     dates = []
+    #     while current <= vacation.end_day :
+    #         dates.append(current)
+    #         current += timedelta(days=1)
+    #     return dates
+
+class RetrievePlanning(APIView) : 
+    authentication_classes = [CookieJWTAuthentication]
+
+    def get(self, request) :
+
+        try :
+            #On récupère la date actuelle
+            today = date.today()
+
+            #Premier jour du mois
+            start_of_month = today.replace(day=1)
+            # Dernier jour du mois 
+            next_month = start_of_month.replace(day=28) + timedelta(days=4)
+            end_of_month = next_month.replace(day=1) - timedelta(days=1)
+
+            planning = PlanningEntry.objects.filter(
+                date__range = (start_of_month, end_of_month) 
+            ).order_by('date', 'start_hour')
+
+            serializer = RetrievePlanningSerializer(planning, many=True)
+            return Response(serializer.data)
+        except Exception as e :
+            return Response ({"error" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        
 
             
 

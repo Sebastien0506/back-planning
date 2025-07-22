@@ -3,7 +3,7 @@ from django.contrib.auth.hashers import make_password, check_password
 import html
 from datetime import time, datetime
 from django.contrib.auth import get_user_model
-from back.models import Magasin, Contrat, WorkingDay, Vacation
+from back.models import Magasin, Contrat, WorkingDay, Vacation, PlanningEntry
 
 User = get_user_model()
 
@@ -343,6 +343,7 @@ class DetailEmployerSerializer(serializers.ModelSerializer) :
         model = User
         fields = ["username", "last_name", "email"]
 
+
 class CheckVacationSerializer(serializers.ModelSerializer) : 
     class Meta :
         model = Vacation
@@ -398,8 +399,42 @@ class ChangeStatusVacationSerializer(serializers.ModelSerializer) :
             raise serializers.ValidationError("Le status ne doit contenir que des lettres")
 
     
+class CalendarEmployeeSerializer(serializers.ModelSerializer):
+    working_day = WorkingDaySerializer(read_only=True)
+    start_day = serializers.CharField(source="working_day.start_job")
+    end_day = serializers.CharField(source="working_day.end_job")
+    start_vacation = serializers.SerializerMethodField()
+    end_vacation = serializers.SerializerMethodField()
+    status_vacation = serializers.SerializerMethodField()
+    shop_name = serializers.SerializerMethodField()
 
-        
+    class Meta:
+        model = User
+        fields = [
+            "id", "username", "last_name", "working_day", "start_day", "end_day",
+            "shop_name", "start_vacation", "end_vacation", "status_vacation"
+        ]
+
+    def get_start_vacation(self, obj):
+        vacation = Vacation.objects.filter(user=obj).first()
+        return vacation.start_day if vacation else None
+
+    def get_end_vacation(self, obj):
+        vacation = Vacation.objects.filter(user=obj).first()
+        return vacation.end_day if vacation else None
+
+    def get_status_vacation(self, obj):
+        vacation = Vacation.objects.filter(user=obj).first()
+        return vacation.status if vacation else None
+
+    def get_shop_name(self, obj):
+        # Si `magasins` est un ManyToManyField :
+        return [m.shop_name for m in obj.magasin.all()]
+
+class RetrievePlanningSerializer(serializers.ModelSerializer) :
+    class Meta :
+        model = PlanningEntry
+        fields = "__all__"      
 
          
          

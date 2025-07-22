@@ -5,7 +5,6 @@ from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth.models import AbstractUser
 import datetime
 
-
 class User(AbstractUser) : 
     username = models.CharField(max_length=50, unique=False)
     email = models.EmailField(unique=True)
@@ -60,6 +59,16 @@ class Vacation(models.Model) :
     )
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
     
+class PlanningEntry(models.Model) :
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    date = models.DateField()
+    start_hour = models.TimeField(null=True, blank=True)
+    end_hour = models.TimeField(null=True, blank=True)
+    label = models.CharField(max_length=10)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.date} ({self.label})"
 
 
 
