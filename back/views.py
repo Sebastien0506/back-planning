@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
-from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
+from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie, csrf_exempt
 from rest_framework.response import Response
 from django.http import JsonResponse
 from rest_framework.permissions import AllowAny, IsAuthenticated
