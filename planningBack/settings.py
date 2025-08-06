@@ -29,7 +29,11 @@ if not SECRET_KEY :
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "51.38.224.118",  # ✅ Ajoute l’IP de ton VPS
+    "planeasy.fr",     # ✅ Ajoute aussi ton nom de domaine
+    "www.planeasy.fr"
+]
 
 
 # Application definition
