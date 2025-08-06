@@ -92,6 +92,8 @@ SIMPLE_JWT = {
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:4200",  # Autorise les requêtes du frontend
+    "http://planeasy.fr",        # ✅ Permet à django d'accepeter les requêtes venant de cette url
+    "https://planeasy.fr",       # ✅ Permet à django d'accepeter les requêtes venant de cette url
 ]
 # Sécurité CSRF et CORS
 SESSION_COOKIE_SAMESITE = "None"
