@@ -95,14 +95,16 @@ CORS_ALLOWED_ORIGINS = [
     "http://planeasy.fr",        # ✅ Permet à django d'accepeter les requêtes venant de cette url
     "https://planeasy.fr",       # ✅ Permet à django d'accepeter les requêtes venant de cette url
 ]
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 # Sécurité CSRF et CORS
 SESSION_COOKIE_SAMESITE = "None"
-SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = True
 CSRF_TRUSTED_ORIGINS = ["http://localhost:4200",
-"http://planeasy.fr"]  # Autorise Angular à envoyer le CSRF Token
+"https://planeasy.fr", "https://www.planeasy.fr"]  # Autorise Angular à envoyer le CSRF Token
 CSRF_COOKIE_HTTPONLY = False  # Permet au frontend d'accéder au cookie (si False, il peut être lu par JS)
 CSRF_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SECURE = False  # Doit être False en local, True en production (HTTPS)
+CSRF_COOKIE_SECURE = True  # Doit être False en local, True en production (HTTPS)
 CSRF_USE_SESSIONS = False  # Assure-toi qu'il est False pour que le CSRF soit stocké en cookie
 
 CORS_ALLOW_CREDENTIALS = True  # Permet d'envoyer des cookies (comme CSRF)
