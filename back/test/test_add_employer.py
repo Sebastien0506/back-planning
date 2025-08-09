@@ -16,7 +16,7 @@ def test_valid_add_employer():
             "start_job" : "09:00",
             "end_job" : "17:00"
         },
-        "shops" : [shop.id],
+        "magasins" : [shop.id],
         "contrat" : contrat.id
     }
     serializer = AddEmployerSerializer(data=data)
@@ -35,7 +35,7 @@ def test_invalid_add_employer():
             "start_job" : "09:00",
             "end_job" : "17:00"
         },
-        "shops" : [shop.id],
+        "magasins" : [shop.id],
         "contrat" : contrat.id
     }
     serializer = AddEmployerSerializer(data=data)
