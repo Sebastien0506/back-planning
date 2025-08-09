@@ -32,7 +32,8 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "51.38.224.118",  # ✅ Ajoute l’IP de ton VPS
     "planeasy.fr",     # ✅ Ajoute aussi ton nom de domaine
-    "www.planeasy.fr"
+    "www.planeasy.fr",
+    "planeasy.localhost", "api.planeasy.localhost", "localhost"
 ]
 
 
@@ -94,6 +95,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:4200",  # Autorise les requêtes du frontend
     "http://planeasy.fr",        # ✅ Permet à django d'accepeter les requêtes venant de cette url
     "https://planeasy.fr",       # ✅ Permet à django d'accepeter les requêtes venant de cette url
+    "http://planeasy;loalhost"
 ]
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
@@ -101,7 +103,8 @@ USE_X_FORWARDED_HOST = True
 SESSION_COOKIE_SAMESITE = "None"
 SESSION_COOKIE_SECURE = True
 CSRF_TRUSTED_ORIGINS = ["http://localhost:4200",
-"https://planeasy.fr", "https://www.planeasy.fr"]  # Autorise Angular à envoyer le CSRF Token
+"https://planeasy.fr", "https://www.planeasy.fr", "https://planeasy.localhost",
+    "https://api.planeasy.localhost",]  # Autorise Angular à envoyer le CSRF Token
 CSRF_COOKIE_HTTPONLY = False  # Permet au frontend d'accéder au cookie (si False, il peut être lu par JS)
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = True  # Doit être False en local, True en production (HTTPS)
